@@ -17,7 +17,12 @@
 package org.apache.kerberos.examples.gssdemo;
 
 import java.applet.Applet;
-import java.awt.*;
+import java.awt.Button;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Label;
+import java.awt.TextArea;
+import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 

@@ -16,17 +16,23 @@
  */
 package org.apache.kerberos.examples.gssdemo;
 
-import org.apache.kerberos.util.CallbackHandlerBean;
-import org.ietf.jgss.*;
-
-import javax.security.auth.Subject;
-import javax.security.auth.login.LoginContext;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.PrivilegedAction;
 import java.security.Security;
+
+import javax.security.auth.Subject;
+import javax.security.auth.login.LoginContext;
+
+import org.apache.kerberos.jaas.CallbackHandlerBean;
+import org.ietf.jgss.GSSContext;
+import org.ietf.jgss.GSSCredential;
+import org.ietf.jgss.GSSManager;
+import org.ietf.jgss.GSSName;
+import org.ietf.jgss.MessageProp;
+import org.ietf.jgss.Oid;
 
 public class GSSServerThread implements PrivilegedAction
 {
