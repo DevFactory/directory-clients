@@ -16,7 +16,7 @@
  */
 package org.apache.kerberos.keytab;
 
-import org.apache.kerberos.kdc.KerberosException;
+import org.apache.kerberos.exceptions.KerberosException;
 
 public class KeytabException extends KerberosException
 {

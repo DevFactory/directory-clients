@@ -16,16 +16,17 @@
  */
 package org.apache.kerberos.keytab;
 
-import org.apache.kerberos.kdc.KerberosException;
-
-import javax.security.auth.kerberos.KerberosKey;
-import javax.security.auth.kerberos.KerberosPrincipal;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.security.auth.kerberos.KerberosKey;
+import javax.security.auth.kerberos.KerberosPrincipal;
+
+import org.apache.kerberos.exceptions.KerberosException;
 
 public class KeytabStore
 {
