@@ -9,6 +9,13 @@
     A simple Kerberos 5 client with UI for testing the server.
   </description>
   <dependencies>
+    <dependency>
+      <artifactId>maven-site-plugin</artifactId>
+      <groupId>maven</groupId>
+      <version>1.6.1</version>
+      <type>plugin</type>
+    </dependency>
+
     <!-- might depend on this later
     <dependency>
       <groupId>incubator-directory</groupId>
