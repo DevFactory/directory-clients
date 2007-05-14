@@ -16,11 +16,11 @@
  */
 package org.apache.kerberos.examples.gssdemo;
 
+
 public class GSSServer
 {
-    public static void main(String[] args)
+    public static void main( String[] args )
     {
         new GSSServerThread().startServer();
     }
 }
-
