@@ -20,6 +20,7 @@
 package org.apache.directory.client.kerberos.protocol;
 
 
+import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.directory.server.kerberos.shared.messages.KdcReply;
 import org.apache.mina.common.IdleStatus;
 import org.apache.mina.common.IoHandler;
@@ -85,10 +86,20 @@ public class KerberosClientHandler extends IoHandlerAdapter
 
         System.out.println( session.getRemoteAddress() + " RCVD: " + message );
 
-        KdcReply reply = (KdcReply) message;
-        
-        System.out.println( reply.getClientRealm() );
-        
+        if ( message instanceof KdcReply )
+        {
+            KdcReply reply = ( KdcReply ) message;
+            System.out.println( reply.getClientRealm() );
+        }
+        else
+        {
+            if ( message instanceof ErrorMessage )
+            {
+                ErrorMessage error = ( ErrorMessage ) message;
+                System.out.println( error.getExplanatoryText() );
+            }
+        }
+
         session.close();
     }
 
@@ -99,7 +110,7 @@ public class KerberosClientHandler extends IoHandlerAdapter
         {
             log.debug( session.getRemoteAddress() + " SENT: " + message );
         }
-        
+
         System.out.println( session.getRemoteAddress() + " SENT: " + message );
     }
 
@@ -107,11 +118,11 @@ public class KerberosClientHandler extends IoHandlerAdapter
     public void exceptionCaught( IoSession session, Throwable cause )
     {
         log.error( session.getRemoteAddress() + " EXCEPTION", cause );
-        
+
         System.out.println( session.getRemoteAddress() + " EXCEPTION" );
-        
+
         cause.printStackTrace();
-        
+
         session.close();
     }
 }
