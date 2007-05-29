@@ -20,25 +20,16 @@
 package org.apache.directory.client.kerberos;
 
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 
-import javax.security.auth.kerberos.KerberosKey;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import org.apache.directory.client.kerberos.protocol.KerberosClientCodecFactory;
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
-import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
-import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
-import org.apache.directory.server.kerberos.shared.exceptions.KerberosException;
-import org.apache.directory.server.kerberos.shared.io.encoder.EncryptedDataEncoder;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
 import org.apache.directory.server.kerberos.shared.messages.MessageType;
-import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
-import org.apache.directory.server.kerberos.shared.messages.value.EncryptedTimeStamp;
-import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.KdcOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
 import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationData;
@@ -61,10 +52,9 @@ import org.apache.mina.transport.socket.nio.DatagramConnector;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
  */
-public class GetTicketGrantingTicket
+public class GetServiceTicket
 {
     private static final SecureRandom random = new SecureRandom();
-    private static final boolean PA_ENC_TIMESTAMP_REQUIRED = true;
 
     /** The remote Kerberos server name. */
     private String hostname = "localhost";
@@ -87,7 +77,7 @@ public class GetTicketGrantingTicket
      */
     public static void main( String[] args ) throws Exception
     {
-        new GetTicketGrantingTicket().go();
+        new GetServiceTicket().go();
     }
 
 
@@ -124,62 +114,37 @@ public class GetTicketGrantingTicket
 
 
     /**
-     * Create a KdcRequest, suitable for requesting a Ticket-Granting Ticket (TGT).
+     * Create a KdcRequest, suitable for requesting a service Ticket.
      * 
-     * Based on RFC 1510, A.1.  KRB_AS_REQ generation
+     * Based on RFC 1510, A.5.  KRB_TGS_REQ generation
      */
-    private KdcRequest getKdcRequest() throws IOException
+    private KdcRequest getKdcRequest()
     {
         RequestBodyModifier modifier = new RequestBodyModifier();
 
         KerberosPrincipal principal = new KerberosPrincipal( "hnelson@EXAMPLE.COM" );
-        KerberosKey kerberosKey = new KerberosKey( principal, "s3crEt".toCharArray(), "DES" );
+
+        int pvno = 5;
+        MessageType messageType = MessageType.KRB_TGS_REQ;
 
         KdcOptions kdcOptions = getKdcOptions();
 
-        int pvno = 5;
-        MessageType messageType = MessageType.KRB_AS_REQ;
-
-        PreAuthenticationData[] paData = new PreAuthenticationData[1];
-
-        if ( PA_ENC_TIMESTAMP_REQUIRED )
-        {
-            CipherTextHandler lockBox = new CipherTextHandler();
-            EncryptionKey key = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
-
-            KerberosTime timeStamp = new KerberosTime();
-            EncryptedTimeStamp encryptedTimeStamp = new EncryptedTimeStamp( timeStamp, 0 );
-
-            EncryptedData encryptedData = null;
-
-            try
-            {
-                encryptedData = lockBox.seal( key, encryptedTimeStamp, KeyUsage.NUMBER1 );
-            }
-            catch ( KerberosException ke )
-            {
-                ke.printStackTrace();
-            }
-
-            byte[] encodedEncryptedData = EncryptedDataEncoder.encode( encryptedData );
-
-            PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
-            preAuth.setDataType( PreAuthenticationDataType.PA_ENC_TIMESTAMP );
-            preAuth.setDataValue( encodedEncryptedData );
-
-            paData[0] = preAuth.getPreAuthenticationData();
-        }
-
-        PrincipalName clientName = new PrincipalName( principal.getName(), principal.getNameType() );
-        modifier.setClientName( clientName );
+        /*
+         If the TGT is not for the realm of the end-server
+         then the sname will be for a TGT for the end-realm
+         and the realm of the requested ticket (body.realm)
+         will be that of the TGS to which the TGT we are
+         sending applies.
+         */
+        PrincipalName serverName = new PrincipalName( "ldap/ldap.example.com", principal.getNameType() );
+        modifier.setServerName( serverName );
         modifier.setRealm( principal.getRealm() );
 
-        PrincipalName serverName = new PrincipalName( "krbtgt/EXAMPLE.COM", principal.getNameType() );
-        modifier.setServerName( serverName );
-
+        // Set the requested starting time.
         if ( kdcOptions.get( KdcOptions.POSTDATED ) )
         {
-            // body.from := requested starting time;
+            KerberosTime fromTime = new KerberosTime();
+            modifier.setFrom( fromTime );
         }
 
         KerberosTime endTime = new KerberosTime( System.currentTimeMillis() + ONE_DAY );
@@ -187,8 +152,8 @@ public class GetTicketGrantingTicket
 
         if ( kdcOptions.get( KdcOptions.RENEWABLE ) )
         {
-            KerberosTime rTime = new KerberosTime( System.currentTimeMillis() + ONE_WEEK );
-            modifier.setRtime( rTime );
+            KerberosTime renewableTime = new KerberosTime( System.currentTimeMillis() + ONE_WEEK );
+            modifier.setRtime( renewableTime );
         }
 
         modifier.setKdcOptions( kdcOptions );
@@ -211,7 +176,25 @@ public class GetTicketGrantingTicket
          omit body.enc-authorization-data;
          */
 
+        if ( kdcOptions.get( KdcOptions.ENC_TKT_IN_SKEY ) )
+        {
+            // modifier.setAdditionalTickets( secondTGT )
+        }
+
         RequestBody requestBody = modifier.getRequestBody();
+
+        // TODO - check := generate_checksum (req.body,checksumtype);
+
+        PreAuthenticationData[] paData = new PreAuthenticationData[1];
+
+        PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
+        preAuth.setDataType( PreAuthenticationDataType.PA_TGS_REQ );
+
+        // TODO - padata[0].padata-value := create a KRB_AP_REQ using the TGT and checksum
+        preAuth.setDataValue( new byte[]
+            { ( byte ) 0x00 } );
+
+        paData[0] = preAuth.getPreAuthenticationData();
 
         return new KdcRequest( pvno, messageType, paData, requestBody );
     }
