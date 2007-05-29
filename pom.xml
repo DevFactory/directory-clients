@@ -18,6 +18,7 @@
   <modules>
       <module>client</module>
       <module>examples</module>
+      <module>realm</module>
   </modules>
   <dependencies>
     <dependency>
