@@ -26,7 +26,7 @@ import org.apache.directory.server.kerberos.shared.io.encoder.KdcRequestEncoder;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
 import org.apache.mina.common.ByteBuffer;
 import org.apache.mina.common.IoSession;
-import org.apache.mina.filter.codec.ProtocolEncoder;
+import org.apache.mina.filter.codec.ProtocolEncoderAdapter;
 import org.apache.mina.filter.codec.ProtocolEncoderOutput;
 
 
@@ -34,7 +34,7 @@ import org.apache.mina.filter.codec.ProtocolEncoderOutput;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev: 502788 $, $Date: 2007-02-02 15:11:29 -0800 (Fri, 02 Feb 2007) $
  */
-public class KerberosClientEncoder implements ProtocolEncoder
+public class KerberosClientEncoder extends ProtocolEncoderAdapter
 {
     private KdcRequestEncoder requestEncoder = new KdcRequestEncoder();
 
@@ -48,11 +48,5 @@ public class KerberosClientEncoder implements ProtocolEncoder
         buf.flip();
 
         out.write( buf );
-    }
-
-
-    public void dispose( IoSession arg0 ) throws Exception
-    {
-        // Unused interface method.
     }
 }
