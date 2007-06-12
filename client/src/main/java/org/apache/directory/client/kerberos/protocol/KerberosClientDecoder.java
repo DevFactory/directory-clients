@@ -27,7 +27,7 @@ import org.apache.directory.server.kerberos.shared.io.decoder.ErrorMessageDecode
 import org.apache.directory.server.kerberos.shared.io.decoder.KdcReplyDecoder;
 import org.apache.mina.common.ByteBuffer;
 import org.apache.mina.common.IoSession;
-import org.apache.mina.filter.codec.ProtocolDecoder;
+import org.apache.mina.filter.codec.ProtocolDecoderAdapter;
 import org.apache.mina.filter.codec.ProtocolDecoderOutput;
 
 
@@ -35,7 +35,7 @@ import org.apache.mina.filter.codec.ProtocolDecoderOutput;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev: 502788 $, $Date: 2007-02-02 15:11:29 -0800 (Fri, 02 Feb 2007) $
  */
-public class KerberosClientDecoder implements ProtocolDecoder
+public class KerberosClientDecoder extends ProtocolDecoderAdapter
 {
     private static final byte[] ERROR = new byte[]
         { ( byte ) 0x7E, ( byte ) 0x78, ( byte ) 0x30, ( byte ) 0x76 };
@@ -60,17 +60,5 @@ public class KerberosClientDecoder implements ProtocolDecoder
             System.out.println( "Got reply." );
             out.write( replyDecoder.decode( in.buf() ) );
         }
-    }
-
-
-    public void dispose( IoSession session ) throws Exception
-    {
-        // Unused interface method.
-    }
-
-
-    public void finishDecode( IoSession session, ProtocolDecoderOutput out ) throws Exception
-    {
-        // Unused interface method.
     }
 }
