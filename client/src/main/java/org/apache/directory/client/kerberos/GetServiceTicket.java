@@ -25,7 +25,7 @@ import java.security.SecureRandom;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
-import org.apache.directory.client.kerberos.protocol.KerberosClientCodecFactory;
+import org.apache.directory.client.kerberos.protocol.KerberosClientUdpCodecFactory;
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
@@ -89,7 +89,7 @@ public class GetServiceTicket
         IoConnector connector = new DatagramConnector();
 
         connector.getFilterChain()
-            .addLast( "codec", new ProtocolCodecFilter( KerberosClientCodecFactory.getInstance() ) );
+            .addLast( "codec", new ProtocolCodecFilter( KerberosClientUdpCodecFactory.getInstance() ) );
         connector.getFilterChain().addLast( "logger", new LoggingFilter() );
 
         ConnectFuture future = connector.connect( new InetSocketAddress( hostname, REMOTE_PORT ),
