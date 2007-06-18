@@ -34,7 +34,7 @@ import org.apache.mina.filter.codec.ProtocolEncoderOutput;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
  */
-public class PasswordClientEncoder extends ProtocolEncoderAdapter
+public class PasswordClientTcpEncoder extends ProtocolEncoderAdapter
 {
     private ChangePasswordRequestEncoder requestEncoder = new ChangePasswordRequestEncoder();
 
@@ -43,8 +43,23 @@ public class PasswordClientEncoder extends ProtocolEncoderAdapter
     {
         ByteBuffer buf = ByteBuffer.allocate( 1024 );
 
+        // make space for int length
+        buf.putInt( 0 );
+
         requestEncoder.encode( buf.buf(), ( ChangePasswordRequest ) message );
 
+        // mark position
+        int end = buf.position();
+
+        // length is the data minus 4 bytes for the pre-pended length
+        int recordLength = end - 4;
+
+        // write the length
+        buf.rewind();
+        buf.putInt( recordLength );
+
+        // set the position back before flipping the buffer
+        buf.position( end );
         buf.flip();
 
         out.write( buf );
