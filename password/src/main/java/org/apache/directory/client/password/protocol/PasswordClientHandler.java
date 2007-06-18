@@ -25,6 +25,8 @@ import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.mina.common.IoHandler;
 import org.apache.mina.common.IoHandlerAdapter;
 import org.apache.mina.common.IoSession;
+import org.apache.mina.common.TransportType;
+import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +40,26 @@ import org.slf4j.LoggerFactory;
 public class PasswordClientHandler extends IoHandlerAdapter
 {
     private static final Logger log = LoggerFactory.getLogger( PasswordClientHandler.class );
+
+
+    public void sessionCreated( IoSession session ) throws Exception
+    {
+        if ( log.isDebugEnabled() )
+        {
+            log.debug( session.getRemoteAddress() + " CREATED : " + session.getTransportType() );
+        }
+
+        if ( session.getTransportType() == TransportType.DATAGRAM )
+        {
+            session.getFilterChain().addFirst( "codec",
+                new ProtocolCodecFilter( PasswordClientUdpCodecFactory.getInstance() ) );
+        }
+        else
+        {
+            session.getFilterChain().addFirst( "codec",
+                new ProtocolCodecFilter( PasswordClientTcpCodecFactory.getInstance() ) );
+        }
+    }
 
 
     public void messageReceived( IoSession session, Object message )
