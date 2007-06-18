@@ -29,23 +29,23 @@ import org.apache.mina.filter.codec.ProtocolEncoder;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev: 540371 $, $Date: 2007-05-21 17:00:43 -0700 (Mon, 21 May 2007) $
  */
-public class KerberosClientCodecFactory implements ProtocolCodecFactory
+public class KerberosClientUdpCodecFactory implements ProtocolCodecFactory
 {
-    private static final KerberosClientCodecFactory INSTANCE = new KerberosClientCodecFactory();
+    private static final KerberosClientUdpCodecFactory INSTANCE = new KerberosClientUdpCodecFactory();
 
 
     /**
-     * Returns the singleton {@link KerberosClientCodecFactory}.
+     * Returns the singleton {@link KerberosClientUdpCodecFactory}.
      *
-     * @return The singleton {@link KerberosClientCodecFactory}.
+     * @return The singleton {@link KerberosClientUdpCodecFactory}.
      */
-    public static KerberosClientCodecFactory getInstance()
+    public static KerberosClientUdpCodecFactory getInstance()
     {
         return INSTANCE;
     }
 
 
-    private KerberosClientCodecFactory()
+    private KerberosClientUdpCodecFactory()
     {
         // Private constructor prevents instantiation outside this class.
     }
@@ -54,13 +54,13 @@ public class KerberosClientCodecFactory implements ProtocolCodecFactory
     public ProtocolEncoder getEncoder()
     {
         // Create a new encoder.
-        return new KerberosClientEncoder();
+        return new KerberosClientUdpEncoder();
     }
 
 
     public ProtocolDecoder getDecoder()
     {
         // Create a new decoder.
-        return new KerberosClientDecoder();
+        return new KerberosClientUdpDecoder();
     }
 }

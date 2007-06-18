@@ -21,32 +21,44 @@ package org.apache.directory.client.kerberos.protocol;
 
 
 import java.io.IOException;
+import java.util.Arrays;
 
-import org.apache.directory.server.kerberos.shared.io.encoder.KdcRequestEncoder;
-import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
+import org.apache.directory.server.kerberos.shared.io.decoder.ErrorMessageDecoder;
+import org.apache.directory.server.kerberos.shared.io.decoder.KdcReplyDecoder;
 import org.apache.mina.common.ByteBuffer;
 import org.apache.mina.common.IoSession;
-import org.apache.mina.filter.codec.ProtocolEncoderAdapter;
-import org.apache.mina.filter.codec.ProtocolEncoderOutput;
+import org.apache.mina.filter.codec.ProtocolDecoderAdapter;
+import org.apache.mina.filter.codec.ProtocolDecoderOutput;
 
 
 /**
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev: 502788 $, $Date: 2007-02-02 15:11:29 -0800 (Fri, 02 Feb 2007) $
  */
-public class KerberosClientEncoder extends ProtocolEncoderAdapter
+public class KerberosClientUdpDecoder extends ProtocolDecoderAdapter
 {
-    private KdcRequestEncoder requestEncoder = new KdcRequestEncoder();
+    private static final byte[] ERROR = new byte[]
+        { ( byte ) 0x7E, ( byte ) 0x78, ( byte ) 0x30, ( byte ) 0x76 };
+
+    private KdcReplyDecoder replyDecoder = new KdcReplyDecoder();
+    private ErrorMessageDecoder errorDecoder = new ErrorMessageDecoder();
 
 
-    public void encode( IoSession session, Object message, ProtocolEncoderOutput out ) throws IOException
+    public void decode( IoSession session, ByteBuffer in, ProtocolDecoderOutput out ) throws IOException
     {
-        ByteBuffer buf = ByteBuffer.allocate( 1024 );
+        byte[] header = new byte[4];
+        in.get( header );
+        in.rewind();
 
-        requestEncoder.encode( ( KdcRequest ) message, buf.buf() );
-
-        buf.flip();
-
-        out.write( buf );
+        if ( Arrays.equals( ERROR, header ) )
+        {
+            System.out.println( "Got error." );
+            out.write( errorDecoder.decode( in.buf() ) );
+        }
+        else
+        {
+            System.out.println( "Got reply." );
+            out.write( replyDecoder.decode( in.buf() ) );
+        }
     }
 }
