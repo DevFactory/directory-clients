@@ -25,13 +25,10 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.util.Date;
+import java.util.Arrays;
 
-import javax.security.auth.kerberos.KerberosKey;
 import javax.security.auth.kerberos.KerberosPrincipal;
-import javax.security.auth.kerberos.KerberosTicket;
 
-import org.apache.directory.client.password.protocol.PasswordClientCodecFactory;
 import org.apache.directory.client.password.protocol.PasswordClientHandler;
 import org.apache.directory.server.changepw.messages.ChangePasswordReply;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequest;
@@ -50,24 +47,18 @@ import org.apache.directory.server.kerberos.shared.messages.components.Authentic
 import org.apache.directory.server.kerberos.shared.messages.components.EncApRepPart;
 import org.apache.directory.server.kerberos.shared.messages.components.EncKrbPrivPart;
 import org.apache.directory.server.kerberos.shared.messages.components.EncKrbPrivPartModifier;
-import org.apache.directory.server.kerberos.shared.messages.components.EncTicketPart;
-import org.apache.directory.server.kerberos.shared.messages.components.EncTicketPartModifier;
 import org.apache.directory.server.kerberos.shared.messages.components.Ticket;
-import org.apache.directory.server.kerberos.shared.messages.components.TicketModifier;
 import org.apache.directory.server.kerberos.shared.messages.value.ApOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.HostAddress;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
-import org.apache.directory.server.kerberos.shared.messages.value.TransitedEncoding;
-import org.apache.directory.shared.ldap.util.StringTools;
+import org.apache.directory.server.kerberos.shared.store.TicketFactory;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
-import org.apache.mina.filter.LoggingFilter;
-import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.transport.socket.nio.DatagramConnector;
+import org.apache.mina.transport.socket.nio.SocketConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,22 +75,30 @@ public class ChangePassword
 
     private static final SecureRandom random = new SecureRandom();
 
+    private static final byte[] SUCCESS = new byte[]
+        { ( byte ) 0x00, ( byte ) 0x00 };
+
     /** The remote Change Password server name. */
     private String hostname = "localhost";
 
     /** The remote ChangePassword port number. */
     private static final int REMOTE_PORT = 464;
 
-    /** One day in milliseconds, used for default end time. */
-    private static final int ONE_DAY = 86400000;
-
-    /** One week in milliseconds, used for default renewal period. */
-    private static final int ONE_WEEK = 86400000 * 7;
-
     private CipherTextHandler cipherTextHandler = new CipherTextHandler();
+
+    private TicketFactory ticketFactory = new TicketFactory();
 
     private EncryptionKey sessionKey;
     private EncryptionKey subSessionKey;
+    private int sequenceNumber;
+    private KerberosTime now;
+
+    // TODO - parameterize
+    KerberosPrincipal clientPrincipal = new KerberosPrincipal( "hnelson@EXAMPLE.COM" );
+    KerberosPrincipal serverPrincipal = new KerberosPrincipal( "kadmin/changepw@EXAMPLE.COM" );
+    String newPassword = "cabletr0N";
+    String serverPassword = "s3crEt";
+    String transport = "UDP";
 
 
     /**
@@ -119,21 +118,7 @@ public class ChangePassword
      */
     public void go()
     {
-        try
-        {
-            sessionKey = RandomKeyFactory.getRandomKey( EncryptionType.DES_CBC_MD5 );
-            subSessionKey = RandomKeyFactory.getRandomKey( EncryptionType.DES_CBC_MD5 );
-        }
-        catch ( KerberosException ke )
-        {
-            log.debug( "Unexpected exception.", ke );
-        }
-
-        IoConnector connector = new DatagramConnector();
-
-        connector.getFilterChain()
-            .addLast( "codec", new ProtocolCodecFilter( PasswordClientCodecFactory.getInstance() ) );
-        connector.getFilterChain().addLast( "logger", new LoggingFilter() );
+        IoConnector connector = getConnector( transport );
 
         ConnectFuture future = connector.connect( new InetSocketAddress( hostname, REMOTE_PORT ),
             new PasswordClientHandler() );
@@ -155,7 +140,32 @@ public class ChangePassword
         session.getCloseFuture().join();
 
         ChangePasswordReply reply = ( ChangePasswordReply ) session.getAttribute( "reply" );
-        processChangePasswordReply( reply );
+
+        if ( reply != null )
+        {
+            processChangePasswordReply( reply );
+        }
+        else
+        {
+            log.error( "Reply was null." );
+        }
+    }
+
+
+    private IoConnector getConnector( String transport )
+    {
+        IoConnector connector;
+
+        if ( transport.equals( "UDP" ) )
+        {
+            connector = new DatagramConnector();
+        }
+        else
+        {
+            connector = new SocketConnector();
+        }
+
+        return connector;
     }
 
 
@@ -194,17 +204,27 @@ public class ChangePassword
             return;
         }
 
-        // The response user-data contains a result code.
+        // Verify result code.
         byte[] resultCode = privPart.getUserData();
-        HostAddress address = privPart.getSenderAddress();
+        if ( Arrays.equals( SUCCESS, resultCode ) )
+        {
+            log.info( "Password change returned SUCCESS (0x00 0x00)." );
+        }
 
-        log.debug( StringTools.dumpBytes( resultCode ) );
-        log.debug( address.toString() );
+        // Verify client time.
+        String replyTime = repPart.getClientTime().toString();
+        String sentTime = now.toString();
+        if ( !replyTime.equals( sentTime ) )
+        {
+            log.debug( "Mismatched client time (Expected {}, get {}).", sentTime, replyTime );
+        }
 
-        log.debug( repPart.getClientTime().toString() );
-        log.debug( Integer.toString( repPart.getClientMicroSecond() ) );
-        log.debug( repPart.getSequenceNumber().toString() ); // authenticator.getSequenceNumber()
-        log.debug( repPart.getSubSessionKey().toString() ); // authenticator.getSubSessionKey()
+        // Verify sequence number.
+        Integer expectedSequence = repPart.getSequenceNumber();
+        if ( expectedSequence != sequenceNumber )
+        {
+            log.error( "Mismatched sequence number (Expected {}, got {}).", sequenceNumber, expectedSequence );
+        }
     }
 
 
@@ -213,31 +233,40 @@ public class ChangePassword
      */
     private ChangePasswordRequest getChangePasswordRequest() throws Exception
     {
-        // TODO - parameterize
-        KerberosPrincipal clientPrincipal = new KerberosPrincipal( "hnelson@EXAMPLE.COM" );
-        KerberosPrincipal serverPrincipal = new KerberosPrincipal( "kadmin/changepw@EXAMPLE.COM" );
-        String newPassword = "cabletr0N";
+        EncryptionKey serverKey = ticketFactory.getServerKey( serverPrincipal, serverPassword );
+        Ticket serviceTicket = ticketFactory.getTicket( clientPrincipal, serverPrincipal, serverKey );
 
-        // TODO - serverKey comes from store or store ticket.
-        KerberosKey serverKerberosKey = new KerberosKey( serverPrincipal, "s3crEt".toCharArray(), "DES" );
-        byte[] serverKeyBytes = serverKerberosKey.getEncoded();
-        EncryptionKey serverKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, serverKeyBytes );
+        // Get the session key from the service ticket.
+        byte[] sessionKeyBytes = serviceTicket.getSessionKey().getKeyValue();
+        int keyType = serviceTicket.getSessionKey().getKeyType().getOrdinal();
+        sessionKey = new EncryptionKey( EncryptionType.getTypeByOrdinal( keyType ), sessionKeyBytes );
+
+        // Generate a new sub-session key.
+        try
+        {
+            subSessionKey = RandomKeyFactory.getRandomKey( EncryptionType.DES_CBC_MD5 );
+        }
+        catch ( KerberosException ke )
+        {
+            log.debug( "Unexpected exception.", ke );
+        }
+
+        // Generate a new sequence number.
+        sequenceNumber = random.nextInt();
+
+        now = new KerberosTime();
 
         // Build Change Password request.
         ChangePasswordRequestModifier modifier = new ChangePasswordRequestModifier();
 
-        Ticket ticket = getTicket( clientPrincipal, serverPrincipal, serverKey );
         EncryptedData authenticator = getAuthenticator( clientPrincipal );
-
-        // TODO - move
-        KerberosTicket kerberosTicket = getKerberosTicket( ticket );
 
         // Make new ap req, aka the "auth header."
         ApplicationRequest applicationRequest = new ApplicationRequest();
         applicationRequest.setMessageType( MessageType.KRB_AP_REQ );
         applicationRequest.setProtocolVersionNumber( 5 );
         applicationRequest.setApOptions( new ApOptions() );
-        applicationRequest.setTicket( ticket );
+        applicationRequest.setTicket( serviceTicket );
         applicationRequest.setEncPart( authenticator );
 
         // Get private message.
@@ -299,99 +328,15 @@ public class ChangePassword
 
         authenticatorModifier.setVersionNumber( 5 );
         authenticatorModifier.setClientPrincipal( clientPrincipal );
-        authenticatorModifier.setClientTime( new KerberosTime() );
+        authenticatorModifier.setClientTime( now );
         authenticatorModifier.setClientMicroSecond( 0 );
         authenticatorModifier.setSubSessionKey( subSessionKey );
-        authenticatorModifier.setSequenceNumber( random.nextInt() );
+        authenticatorModifier.setSequenceNumber( sequenceNumber );
 
         Authenticator authenticator = authenticatorModifier.getAuthenticator();
 
         EncryptedData encryptedAuthenticator = cipherTextHandler.seal( sessionKey, authenticator, KeyUsage.NUMBER11 );
 
         return encryptedAuthenticator;
-    }
-
-
-    /**
-     * Build the service ticket.  The service ticket contains the session key generated
-     * by the KDC for the client and service to use.  The service will unlock the
-     * authenticator with the session key from the ticket.  The principal in the ticket
-     * must equal the authenticator client principal.
-     * 
-     * If set in the AP Options, the Ticket can also be sealed with the session key.
-     * 
-     * TODO - Allow configurable end time.
-     * TODO - Support postdating by setting {@link EncTicketPartModifier#setStartTime(KerberosTime)}.
-     * TODO - Support renewal by setting {@link EncTicketPartModifier#setRenewTill(KerberosTime)}.
-     * 
-     * @param clientPrincipal
-     * @param serverPrincipal
-     * @return The {@link Ticket}.
-     * @throws KerberosException
-     */
-    private Ticket getTicket( KerberosPrincipal clientPrincipal, KerberosPrincipal serverPrincipal,
-        EncryptionKey serverKey ) throws KerberosException
-    {
-        EncTicketPartModifier encTicketModifier = new EncTicketPartModifier();
-
-        encTicketModifier.setFlags( new TicketFlags() );
-        encTicketModifier.setSessionKey( sessionKey );
-        encTicketModifier.setClientPrincipal( clientPrincipal );
-        encTicketModifier.setTransitedEncoding( new TransitedEncoding() );
-        encTicketModifier.setAuthTime( new KerberosTime() );
-
-        KerberosTime endTime = new KerberosTime( System.currentTimeMillis() + ONE_DAY );
-        encTicketModifier.setEndTime( endTime );
-
-        EncTicketPart encTicketPart = encTicketModifier.getEncTicketPart();
-
-        EncryptedData encryptedTicketPart = cipherTextHandler.seal( serverKey, encTicketPart, KeyUsage.NUMBER2 );
-
-        TicketModifier ticketModifier = new TicketModifier();
-        ticketModifier.setTicketVersionNumber( 5 );
-        ticketModifier.setServerPrincipal( serverPrincipal );
-        ticketModifier.setEncPart( encryptedTicketPart );
-
-        Ticket ticket = ticketModifier.getTicket();
-
-        ticket.setEncTicketPart( encTicketPart );
-
-        return ticket;
-    }
-
-
-    /**
-     * Convert an Apache Directory Kerberos {@link Ticket} into a {@link KerberosTicket}.
-     *
-     * @param ticket
-     * @return The {@link KerberosTicket}.
-     */
-    private KerberosTicket getKerberosTicket( Ticket ticket )
-    {
-        byte[] asn1Encoding = new byte[( byte ) 0x00];
-        KerberosPrincipal client = ticket.getClientPrincipal();
-        KerberosPrincipal server = ticket.getServerPrincipal();
-        byte[] sessionKey = ticket.getSessionKey().getKeyValue();
-        int keyType = ticket.getSessionKey().getKeyType().getOrdinal();
-
-        // TODO - adapt flags
-        boolean[] flags = new boolean[0];
-
-        Date authTime = ticket.getAuthTime().toDate();
-        Date endTime = ticket.getEndTime().toDate();
-
-        Date startTime = ( ticket.getStartTime() != null ? ticket.getStartTime().toDate() : null );
-
-        Date renewTill = null;
-
-        if ( ticket.getFlag( TicketFlags.RENEWABLE ) )
-        {
-            renewTill = ( ticket.getRenewTill() != null ? ticket.getRenewTill().toDate() : null );
-        }
-
-        InetAddress[] clientAddresses = new InetAddress[0];
-
-        return new KerberosTicket( asn1Encoding, client, server, sessionKey, keyType, flags, authTime, startTime,
-            endTime, renewTill, clientAddresses );
     }
 }
