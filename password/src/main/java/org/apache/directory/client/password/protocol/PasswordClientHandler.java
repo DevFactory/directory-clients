@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * An {@link IoHandler} implementation for a Kerberos client.
+ * An {@link IoHandler} implementation for a Set/Change Password client.
  * 
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$

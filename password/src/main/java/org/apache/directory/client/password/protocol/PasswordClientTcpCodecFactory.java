@@ -29,23 +29,23 @@ import org.apache.mina.filter.codec.ProtocolEncoder;
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
  */
-public class PasswordClientCodecFactory implements ProtocolCodecFactory
+public class PasswordClientTcpCodecFactory implements ProtocolCodecFactory
 {
-    private static final PasswordClientCodecFactory INSTANCE = new PasswordClientCodecFactory();
+    private static final PasswordClientTcpCodecFactory INSTANCE = new PasswordClientTcpCodecFactory();
 
 
     /**
-     * Returns the singleton {@link PasswordClientCodecFactory}.
+     * Returns the singleton {@link PasswordClientTcpCodecFactory}.
      *
-     * @return The singleton {@link PasswordClientCodecFactory}.
+     * @return The singleton {@link PasswordClientTcpCodecFactory}.
      */
-    public static PasswordClientCodecFactory getInstance()
+    public static PasswordClientTcpCodecFactory getInstance()
     {
         return INSTANCE;
     }
 
 
-    private PasswordClientCodecFactory()
+    private PasswordClientTcpCodecFactory()
     {
         // Private constructor prevents instantiation outside this class.
     }
@@ -54,13 +54,13 @@ public class PasswordClientCodecFactory implements ProtocolCodecFactory
     public ProtocolEncoder getEncoder()
     {
         // Create a new encoder.
-        return new PasswordClientEncoder();
+        return new PasswordClientTcpEncoder();
     }
 
 
     public ProtocolDecoder getDecoder()
     {
         // Create a new decoder.
-        return new PasswordClientDecoder();
+        return new PasswordClientTcpDecoder();
     }
 }
