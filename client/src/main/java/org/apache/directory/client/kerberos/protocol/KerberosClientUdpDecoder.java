@@ -21,7 +21,6 @@ package org.apache.directory.client.kerberos.protocol;
 
 
 import java.io.IOException;
-import java.util.Arrays;
 
 import org.apache.directory.server.kerberos.shared.io.decoder.ErrorMessageDecoder;
 import org.apache.directory.server.kerberos.shared.io.decoder.KdcReplyDecoder;
@@ -37,8 +36,7 @@ import org.apache.mina.filter.codec.ProtocolDecoderOutput;
  */
 public class KerberosClientUdpDecoder extends ProtocolDecoderAdapter
 {
-    private static final byte[] ERROR = new byte[]
-        { ( byte ) 0x7E, ( byte ) 0x78, ( byte ) 0x30, ( byte ) 0x76 };
+    private static final byte ERROR = ( byte ) 0x7E;
 
     private KdcReplyDecoder replyDecoder = new KdcReplyDecoder();
     private ErrorMessageDecoder errorDecoder = new ErrorMessageDecoder();
@@ -46,18 +44,15 @@ public class KerberosClientUdpDecoder extends ProtocolDecoderAdapter
 
     public void decode( IoSession session, ByteBuffer in, ProtocolDecoderOutput out ) throws IOException
     {
-        byte[] header = new byte[4];
-        in.get( header );
+        byte header = in.get();
         in.rewind();
 
-        if ( Arrays.equals( ERROR, header ) )
+        if ( header == ERROR )
         {
-            System.out.println( "Got error." );
             out.write( errorDecoder.decode( in.buf() ) );
         }
         else
         {
-            System.out.println( "Got reply." );
             out.write( replyDecoder.decode( in.buf() ) );
         }
     }
