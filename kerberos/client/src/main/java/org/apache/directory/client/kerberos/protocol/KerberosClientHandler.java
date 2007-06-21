@@ -20,12 +20,11 @@
 package org.apache.directory.client.kerberos.protocol;
 
 
-import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
-import org.apache.directory.server.kerberos.shared.messages.KdcReply;
-import org.apache.mina.common.IdleStatus;
 import org.apache.mina.common.IoHandler;
 import org.apache.mina.common.IoHandlerAdapter;
 import org.apache.mina.common.IoSession;
+import org.apache.mina.common.TransportType;
+import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,34 +44,18 @@ public class KerberosClientHandler extends IoHandlerAdapter
     {
         if ( log.isDebugEnabled() )
         {
-            log.debug( session.getRemoteAddress() + " CREATED" );
+            log.debug( session.getRemoteAddress() + " CREATED : " + session.getTransportType() );
         }
-    }
 
-
-    public void sessionOpened( IoSession session )
-    {
-        if ( log.isDebugEnabled() )
+        if ( session.getTransportType() == TransportType.DATAGRAM )
         {
-            log.debug( session.getRemoteAddress() + " OPENED" );
+            session.getFilterChain().addFirst( "codec",
+                new ProtocolCodecFilter( KerberosClientUdpCodecFactory.getInstance() ) );
         }
-    }
-
-
-    public void sessionClosed( IoSession session )
-    {
-        if ( log.isDebugEnabled() )
+        else
         {
-            log.debug( session.getRemoteAddress() + " CLOSED" );
-        }
-    }
-
-
-    public void sessionIdle( IoSession session, IdleStatus status )
-    {
-        if ( log.isDebugEnabled() )
-        {
-            log.debug( session.getRemoteAddress() + " IDLE(" + status + ")" );
+            session.getFilterChain().addFirst( "codec",
+                new ProtocolCodecFilter( KerberosClientTcpCodecFactory.getInstance() ) );
         }
     }
 
@@ -84,44 +67,15 @@ public class KerberosClientHandler extends IoHandlerAdapter
             log.debug( session.getRemoteAddress() + " RCVD: " + message );
         }
 
-        System.out.println( session.getRemoteAddress() + " RCVD: " + message );
-
-        if ( message instanceof KdcReply )
-        {
-            KdcReply reply = ( KdcReply ) message;
-            System.out.println( reply.getClientRealm() );
-        }
-        else
-        {
-            if ( message instanceof ErrorMessage )
-            {
-                ErrorMessage error = ( ErrorMessage ) message;
-                System.out.println( error.getExplanatoryText() );
-            }
-        }
+        session.setAttribute( "reply", message );
 
         session.close();
-    }
-
-
-    public void messageSent( IoSession session, Object message )
-    {
-        if ( log.isDebugEnabled() )
-        {
-            log.debug( session.getRemoteAddress() + " SENT: " + message );
-        }
-
-        System.out.println( session.getRemoteAddress() + " SENT: " + message );
     }
 
 
     public void exceptionCaught( IoSession session, Throwable cause )
     {
         log.error( session.getRemoteAddress() + " EXCEPTION", cause );
-
-        System.out.println( session.getRemoteAddress() + " EXCEPTION" );
-
-        cause.printStackTrace();
 
         session.close();
     }

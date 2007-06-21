@@ -20,16 +20,39 @@
 package org.apache.directory.client.kerberos;
 
 
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
+import java.util.Date;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
+import javax.security.auth.kerberos.KerberosTicket;
 
-import org.apache.directory.client.kerberos.protocol.KerberosClientUdpCodecFactory;
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
+import org.apache.directory.server.kerberos.shared.crypto.checksum.ChecksumHandler;
+import org.apache.directory.server.kerberos.shared.crypto.checksum.ChecksumType;
+import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
+import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
+import org.apache.directory.server.kerberos.shared.exceptions.KerberosException;
+import org.apache.directory.server.kerberos.shared.io.decoder.TicketDecoder;
+import org.apache.directory.server.kerberos.shared.io.encoder.ApplicationRequestEncoder;
+import org.apache.directory.server.kerberos.shared.io.encoder.KdcRequestEncoder;
+import org.apache.directory.server.kerberos.shared.io.encoder.TicketEncoder;
+import org.apache.directory.server.kerberos.shared.messages.ApplicationRequest;
+import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
+import org.apache.directory.server.kerberos.shared.messages.KdcReply;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
 import org.apache.directory.server.kerberos.shared.messages.MessageType;
+import org.apache.directory.server.kerberos.shared.messages.components.Authenticator;
+import org.apache.directory.server.kerberos.shared.messages.components.AuthenticatorModifier;
+import org.apache.directory.server.kerberos.shared.messages.components.EncKdcRepPart;
+import org.apache.directory.server.kerberos.shared.messages.components.Ticket;
+import org.apache.directory.server.kerberos.shared.messages.value.ApOptions;
+import org.apache.directory.server.kerberos.shared.messages.value.Checksum;
+import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
+import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.KdcOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
 import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationData;
@@ -41,59 +64,72 @@ import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyMod
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
-import org.apache.mina.filter.LoggingFilter;
-import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.transport.socket.nio.DatagramConnector;
+import org.apache.mina.transport.socket.nio.SocketConnector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
- * A command-line client for requesting Kerberos tickets.
+ * A command object for requesting a Kerberos service ticket.
  * 
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
  */
 public class GetServiceTicket
 {
+    private static final Logger log = LoggerFactory.getLogger( GetServiceTicket.class );
+
     private static final SecureRandom random = new SecureRandom();
 
+    private static final CipherTextHandler cipherTextHandler = new CipherTextHandler();
+
     /** The remote Kerberos server name. */
-    private String hostname = "localhost";
+    private String hostname;
 
-    /** The remote Kerberos port number. */
-    private static final int REMOTE_PORT = 88;
+    /** The remote Kerberos server port. */
+    private int port;
 
-    /** One day in milliseconds, used for default end time. */
-    private static final int ONE_DAY = 86400000;
+    /** The Kerberos transport. */
+    private String transport;
 
-    /** One week in milliseconds, used for default renewal period. */
-    private static final int ONE_WEEK = 86400000 * 7;
+    /** Session attributes that must be verified. */
+    private EncryptionKey sessionKey;
+    private EncryptionKey subSessionKey;
+    private int sequenceNumber;
+    private KerberosTime now;
 
 
     /**
-     * Get a Ticket-Granting Ticket.
-     * 
-     * @param args
-     * @throws Exception
+     * Creates a new instance of GetServiceTicket.
+     *
+     * @param hostname
+     * @param port 
+     * @param transport
      */
-    public static void main( String[] args ) throws Exception
+    public GetServiceTicket( String hostname, int port, String transport )
     {
-        new GetServiceTicket().go();
+        this.hostname = hostname;
+        this.port = port;
+        this.transport = transport;
     }
 
 
     /**
-     * Make the request for a Ticket-Granting Ticket.
+     * Execute the request for a service ticket.
+     * 
+     * @param tgt 
+     * @param servicePrincipal 
+     * @param controls 
+     * @return The service ticket.
+     * @throws KdcConnectionException 
      */
-    public void go()
+    public KerberosTicket execute( KerberosTicket tgt, KerberosPrincipal servicePrincipal, KdcControls controls )
+        throws KdcConnectionException
     {
-        IoConnector connector = new DatagramConnector();
+        IoConnector connector = getConnector( transport );
 
-        connector.getFilterChain()
-            .addLast( "codec", new ProtocolCodecFilter( KerberosClientUdpCodecFactory.getInstance() ) );
-        connector.getFilterChain().addLast( "logger", new LoggingFilter() );
-
-        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, REMOTE_PORT ),
-            new KerberosClientHandler() );
+        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, port ), new KerberosClientHandler() );
 
         future.join();
 
@@ -101,15 +137,95 @@ public class GetServiceTicket
 
         try
         {
-            KdcRequest request = getKdcRequest();
+            KdcRequest request = getKdcRequest( tgt, servicePrincipal, controls );
             session.write( request );
         }
         catch ( Exception e )
         {
-            e.printStackTrace();
+            log.debug( "Unexpected exception.", e );
         }
 
         session.getCloseFuture().join();
+
+        Object message = session.getAttribute( "reply" );
+
+        if ( message instanceof KdcReply )
+        {
+            KdcReply reply = ( KdcReply ) message;
+            return processKdcReply( reply );
+        }
+        else
+        {
+            if ( message instanceof ErrorMessage )
+            {
+                ErrorMessage error = ( ErrorMessage ) message;
+                processError( error );
+            }
+        }
+
+        log.error( "KDC returned error; ticket will be null." );
+        return null;
+    }
+
+
+    private void processError( ErrorMessage error ) throws KdcConnectionException
+    {
+        int errorCode = error.getErrorCode();
+        String errorText = error.getExplanatoryText();
+
+        throw new KdcConnectionException( errorText + " (" + errorCode + ")" );
+    }
+
+
+    private KerberosTicket processKdcReply( KdcReply reply ) throws KdcConnectionException
+    {
+        Ticket ticket = reply.getTicket();
+
+        log.debug( "Received ticket for '{}' to access '{}'.", reply.getClientPrincipal().getName(), ticket
+            .getServerPrincipal().getName() );
+
+        byte[] ticketBytes = null;
+        try
+        {
+            ticketBytes = TicketEncoder.encodeTicket( ticket );
+        }
+        catch ( IOException ioe )
+        {
+            throw new KdcConnectionException( "Error converting ticket.", ioe );
+        }
+
+        KerberosPrincipal client = reply.getClientPrincipal();
+        KerberosPrincipal server = ticket.getServerPrincipal();
+
+        EncryptedData encRepPart = reply.getEncPart();
+
+        EncKdcRepPart repPart;
+
+        try
+        {
+            // TODO - could have used sub-session key to seal, if sub-session key set in authenticator.
+            repPart = ( EncKdcRepPart ) cipherTextHandler.unseal( EncKdcRepPart.class, sessionKey, encRepPart,
+                KeyUsage.NUMBER8 );
+        }
+        catch ( KerberosException ke )
+        {
+            log.debug( "Unexpected exception.", ke );
+            return null;
+        }
+
+        byte[] sessionKey = repPart.getKey().getKeyValue();
+        int keyType = repPart.getKey().getKeyType().getOrdinal();
+        Date endTime = repPart.getEndTime().toDate();
+
+        // might be null
+        boolean[] flags = null;
+        Date authTime = null;
+        Date startTime = null;
+        Date renewTill = null;
+        InetAddress[] clientAddresses = null;
+
+        return new KerberosTicket( ticketBytes, client, server, sessionKey, keyType, flags, authTime, startTime,
+            endTime, renewTill, clientAddresses );
     }
 
 
@@ -118,16 +234,27 @@ public class GetServiceTicket
      * 
      * Based on RFC 1510, A.5.  KRB_TGS_REQ generation
      */
-    private KdcRequest getKdcRequest()
+    private KdcRequest getKdcRequest( KerberosTicket tgt, KerberosPrincipal servicePrincipal, KdcControls controls )
+        throws Exception
     {
+        // Get the session key from the service ticket.
+        byte[] sessionKeyBytes = tgt.getSessionKey().getEncoded();
+        int keyType = tgt.getSessionKeyType();
+
+        sessionKey = new EncryptionKey( EncryptionType.getTypeByOrdinal( keyType ), sessionKeyBytes );
+
         RequestBodyModifier modifier = new RequestBodyModifier();
 
-        KerberosPrincipal principal = new KerberosPrincipal( "hnelson@EXAMPLE.COM" );
-
-        int pvno = 5;
-        MessageType messageType = MessageType.KRB_TGS_REQ;
-
-        KdcOptions kdcOptions = getKdcOptions();
+        /*
+         Forwardable Ticket false
+         Forwarded Ticket false
+         Proxiable Ticket false
+         Proxy Ticket false
+         Postdated Ticket false
+         Renewable Ticket false
+         Initial Ticket false
+         */
+        KdcOptions kdcOptions = new KdcOptions();
 
         /*
          If the TGT is not for the realm of the end-server
@@ -136,29 +263,33 @@ public class GetServiceTicket
          will be that of the TGS to which the TGT we are
          sending applies.
          */
-        PrincipalName serverName = new PrincipalName( "ldap/ldap.example.com", principal.getNameType() );
+        PrincipalName serverName = new PrincipalName( servicePrincipal.getName(), servicePrincipal.getNameType() );
         modifier.setServerName( serverName );
-        modifier.setRealm( principal.getRealm() );
+        modifier.setRealm( servicePrincipal.getRealm() );
 
         // Set the requested starting time.
-        if ( kdcOptions.get( KdcOptions.POSTDATED ) )
+        if ( controls.isPostdated() )
         {
-            KerberosTime fromTime = new KerberosTime();
+            KerberosTime fromTime = new KerberosTime( controls.getStartTime() );
             modifier.setFrom( fromTime );
+            kdcOptions.set( KdcOptions.POSTDATED );
         }
 
-        KerberosTime endTime = new KerberosTime( System.currentTimeMillis() + ONE_DAY );
+        long currentTime = System.currentTimeMillis();
+
+        KerberosTime endTime = new KerberosTime( currentTime + KdcControls.DAY );
         modifier.setTill( endTime );
 
-        if ( kdcOptions.get( KdcOptions.RENEWABLE ) )
+        if ( controls.isRenewable() )
         {
-            KerberosTime renewableTime = new KerberosTime( System.currentTimeMillis() + ONE_WEEK );
-            modifier.setRtime( renewableTime );
+            KerberosTime renewTime = new KerberosTime( currentTime + KdcControls.WEEK );
+            modifier.setRtime( renewTime );
+            kdcOptions.set( KdcOptions.RENEWABLE );
         }
 
         modifier.setKdcOptions( kdcOptions );
 
-        modifier.setNonce( getNonce() );
+        modifier.setNonce( random.nextInt() );
 
         EncryptionType[] encryptionTypes = new EncryptionType[1];
         encryptionTypes[0] = EncryptionType.DES_CBC_MD5;
@@ -183,16 +314,42 @@ public class GetServiceTicket
 
         RequestBody requestBody = modifier.getRequestBody();
 
-        // TODO - check := generate_checksum (req.body,checksumtype);
+        int pvno = 5;
+        MessageType messageType = MessageType.KRB_TGS_REQ;
+
+        // TODO - make body encoder not require KdcRequest
+        KdcRequest req = new KdcRequest( pvno, messageType, null, requestBody );
+        KdcRequestEncoder bodyEncoder = new KdcRequestEncoder();
+        byte[] bodyBytes = bodyEncoder.encodeBody( req );
+
+        ChecksumHandler checksumHandler = new ChecksumHandler();
+        Checksum checksum = checksumHandler.calculateChecksum( ChecksumType.RSA_MD5, bodyBytes, null, KeyUsage.NUMBER8 );
 
         PreAuthenticationData[] paData = new PreAuthenticationData[1];
 
         PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
         preAuth.setDataType( PreAuthenticationDataType.PA_TGS_REQ );
 
-        // TODO - padata[0].padata-value := create a KRB_AP_REQ using the TGT and checksum
-        preAuth.setDataValue( new byte[]
-            { ( byte ) 0x00 } );
+        // Generate a new sequence number.
+        sequenceNumber = random.nextInt();
+
+        now = new KerberosTime();
+
+        EncryptedData authenticator = getAuthenticator( tgt.getClient(), checksum );
+        Ticket convertedTicket = TicketDecoder.decode( tgt.getEncoded() );
+
+        // Make new ap req, aka the "auth header."
+        ApplicationRequest applicationRequest = new ApplicationRequest();
+        applicationRequest.setMessageType( MessageType.KRB_AP_REQ );
+        applicationRequest.setProtocolVersionNumber( 5 );
+        applicationRequest.setApOptions( new ApOptions() );
+        applicationRequest.setTicket( convertedTicket );
+        applicationRequest.setEncPart( authenticator );
+
+        ApplicationRequestEncoder encoder = new ApplicationRequestEncoder();
+        byte[] encodedApReq = encoder.encode( applicationRequest );
+
+        preAuth.setDataValue( encodedApReq );
 
         paData[0] = preAuth.getPreAuthenticationData();
 
@@ -200,23 +357,50 @@ public class GetServiceTicket
     }
 
 
-    private int getNonce()
+    /**
+     * Build the authenticator.  The authenticator communicates the sub-session key the
+     * service will use to unlock the private message.  The service will unlock the
+     * authenticator with the session key from the ticket.  The authenticator client
+     * principal must equal the principal in the ticket.  
+     *
+     * @param clientPrincipal
+     * @return The {@link EncryptedData} containing the {@link Authenticator}.
+     * @throws KerberosException
+     */
+    private EncryptedData getAuthenticator( KerberosPrincipal clientPrincipal, Checksum checksum )
+        throws KerberosException
     {
-        return random.nextInt();
+        AuthenticatorModifier authenticatorModifier = new AuthenticatorModifier();
+
+        authenticatorModifier.setVersionNumber( 5 );
+        authenticatorModifier.setClientPrincipal( clientPrincipal );
+        authenticatorModifier.setClientTime( now );
+        authenticatorModifier.setClientMicroSecond( 0 );
+        authenticatorModifier.setSubSessionKey( subSessionKey );
+        authenticatorModifier.setSequenceNumber( sequenceNumber );
+        authenticatorModifier.setChecksum( checksum );
+
+        Authenticator authenticator = authenticatorModifier.getAuthenticator();
+
+        EncryptedData encryptedAuthenticator = cipherTextHandler.seal( sessionKey, authenticator, KeyUsage.NUMBER11 );
+
+        return encryptedAuthenticator;
     }
 
 
-    private KdcOptions getKdcOptions()
+    private IoConnector getConnector( String transport )
     {
-        /*
-         Forwardable Ticket false
-         Forwarded Ticket false
-         Proxiable Ticket false
-         Proxy Ticket false
-         Postdated Ticket false
-         Renewable Ticket false
-         Initial Ticket false
-         */
-        return new KdcOptions();
+        IoConnector connector;
+
+        if ( transport.equals( "UDP" ) )
+        {
+            connector = new DatagramConnector();
+        }
+        else
+        {
+            connector = new SocketConnector();
+        }
+
+        return connector;
     }
 }
