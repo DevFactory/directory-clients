@@ -20,8 +20,6 @@
 package org.apache.directory.client.password.protocol;
 
 
-import org.apache.directory.server.changepw.messages.ChangePasswordReply;
-import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.mina.common.IoHandler;
 import org.apache.mina.common.IoHandlerAdapter;
 import org.apache.mina.common.IoSession;
@@ -64,19 +62,12 @@ public class PasswordClientHandler extends IoHandlerAdapter
 
     public void messageReceived( IoSession session, Object message )
     {
-        if ( message instanceof ChangePasswordReply )
+        if ( log.isDebugEnabled() )
         {
-            ChangePasswordReply reply = ( ChangePasswordReply ) message;
-            session.setAttribute( "reply", reply );
+            log.debug( session.getRemoteAddress() + " RCVD: " + message );
         }
-        else
-        {
-            if ( message instanceof ErrorMessage )
-            {
-                ErrorMessage error = ( ErrorMessage ) message;
-                log.debug( error.getExplanatoryText() );
-            }
-        }
+
+        session.setAttribute( "reply", message );
 
         session.close();
     }

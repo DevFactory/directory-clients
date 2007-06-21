@@ -28,8 +28,10 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
+import javax.security.auth.kerberos.KerberosTicket;
 
 import org.apache.directory.client.password.protocol.PasswordClientHandler;
+import org.apache.directory.server.changepw.messages.ChangePasswordError;
 import org.apache.directory.server.changepw.messages.ChangePasswordReply;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequest;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequestModifier;
@@ -38,7 +40,9 @@ import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionT
 import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.RandomKeyFactory;
 import org.apache.directory.server.kerberos.shared.exceptions.KerberosException;
+import org.apache.directory.server.kerberos.shared.io.decoder.TicketDecoder;
 import org.apache.directory.server.kerberos.shared.messages.ApplicationRequest;
+import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.directory.server.kerberos.shared.messages.MessageType;
 import org.apache.directory.server.kerberos.shared.messages.application.ApplicationReply;
 import org.apache.directory.server.kerberos.shared.messages.application.PrivateMessage;
@@ -53,7 +57,6 @@ import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.HostAddress;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.directory.server.kerberos.shared.store.TicketFactory;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
@@ -64,7 +67,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * A command-line client for changing passwords.
+ * A command object for changing the password of a target principal.
  * 
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
@@ -75,53 +78,56 @@ public class ChangePassword
 
     private static final SecureRandom random = new SecureRandom();
 
+    private static final CipherTextHandler cipherTextHandler = new CipherTextHandler();
+
+    /** The Change Password SUCCESS result code. */
     private static final byte[] SUCCESS = new byte[]
         { ( byte ) 0x00, ( byte ) 0x00 };
 
     /** The remote Change Password server name. */
-    private String hostname = "localhost";
+    private String hostname;
 
-    /** The remote ChangePassword port number. */
-    private static final int REMOTE_PORT = 464;
+    /** The remote Change Password server port. */
+    private int port;
 
-    private CipherTextHandler cipherTextHandler = new CipherTextHandler();
-
-    private TicketFactory ticketFactory = new TicketFactory();
+    /** The Change Password transport. */
+    private String transport;
 
     private EncryptionKey sessionKey;
     private EncryptionKey subSessionKey;
     private int sequenceNumber;
     private KerberosTime now;
 
-    // TODO - parameterize
-    KerberosPrincipal clientPrincipal = new KerberosPrincipal( "hnelson@EXAMPLE.COM" );
-    KerberosPrincipal serverPrincipal = new KerberosPrincipal( "kadmin/changepw@EXAMPLE.COM" );
-    String newPassword = "cabletr0N";
-    String serverPassword = "s3crEt";
-    String transport = "UDP";
-
 
     /**
-     * Change a password.
-     * 
-     * @param args
-     * @throws Exception
+     * Creates a new instance of ChangePassword.
+     *
+     * @param hostname
+     * @param port 
+     * @param transport
      */
-    public static void main( String[] args ) throws Exception
+    public ChangePassword( String hostname, int port, String transport )
     {
-        new ChangePassword().go();
+        this.hostname = hostname;
+        this.port = port;
+        this.transport = transport;
     }
 
 
     /**
-     * Make the request to change a password.
+     * Execute the request to change a password.
+     * 
+     * @param targetPrincipal 
+     * @param newPassword 
+     * @param serviceTicket 
+     * @throws PasswordConnectionException 
      */
-    public void go()
+    public void execute( KerberosPrincipal targetPrincipal, String newPassword, KerberosTicket serviceTicket )
+        throws PasswordConnectionException
     {
         IoConnector connector = getConnector( transport );
 
-        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, REMOTE_PORT ),
-            new PasswordClientHandler() );
+        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, port ), new PasswordClientHandler() );
 
         future.join();
 
@@ -129,7 +135,7 @@ public class ChangePassword
 
         try
         {
-            ChangePasswordRequest request = getChangePasswordRequest();
+            ChangePasswordRequest request = getChangePasswordRequest( targetPrincipal, newPassword, serviceTicket );
             session.write( request );
         }
         catch ( Exception e )
@@ -139,37 +145,34 @@ public class ChangePassword
 
         session.getCloseFuture().join();
 
-        ChangePasswordReply reply = ( ChangePasswordReply ) session.getAttribute( "reply" );
+        Object message = session.getAttribute( "reply" );
 
-        if ( reply != null )
+        if ( message instanceof ChangePasswordReply )
         {
+            ChangePasswordReply reply = ( ChangePasswordReply ) message;
             processChangePasswordReply( reply );
         }
         else
         {
-            log.error( "Reply was null." );
+            if ( message instanceof ChangePasswordError )
+            {
+                ChangePasswordError error = ( ChangePasswordError ) message;
+                processError( error.getErrorMessage() );
+            }
         }
     }
 
 
-    private IoConnector getConnector( String transport )
+    private void processError( ErrorMessage error ) throws PasswordConnectionException
     {
-        IoConnector connector;
+        int errorCode = error.getErrorCode();
+        String errorText = error.getExplanatoryText();
 
-        if ( transport.equals( "UDP" ) )
-        {
-            connector = new DatagramConnector();
-        }
-        else
-        {
-            connector = new SocketConnector();
-        }
-
-        return connector;
+        throw new PasswordConnectionException( errorText + " (" + errorCode + ")" );
     }
 
 
-    private void processChangePasswordReply( ChangePasswordReply reply )
+    private void processChangePasswordReply( ChangePasswordReply reply ) throws PasswordConnectionException
     {
         PrivateMessage privateMessage = reply.getPrivateMessage();
 
@@ -210,6 +213,10 @@ public class ChangePassword
         {
             log.info( "Password change returned SUCCESS (0x00 0x00)." );
         }
+        else
+        {
+            throw new PasswordConnectionException( "Password change failed." );
+        }
 
         // Verify client time.
         String replyTime = repPart.getClientTime().toString();
@@ -217,6 +224,7 @@ public class ChangePassword
         if ( !replyTime.equals( sentTime ) )
         {
             log.debug( "Mismatched client time (Expected {}, get {}).", sentTime, replyTime );
+            throw new PasswordConnectionException( "Mismatched client time." );
         }
 
         // Verify sequence number.
@@ -224,6 +232,7 @@ public class ChangePassword
         if ( expectedSequence != sequenceNumber )
         {
             log.error( "Mismatched sequence number (Expected {}, got {}).", sequenceNumber, expectedSequence );
+            throw new PasswordConnectionException( "Mismatched sequence number." );
         }
     }
 
@@ -231,20 +240,20 @@ public class ChangePassword
     /**
      * Create a {@link ChangePasswordRequest}.
      */
-    private ChangePasswordRequest getChangePasswordRequest() throws Exception
+    private ChangePasswordRequest getChangePasswordRequest( KerberosPrincipal targetPrincipal, String newPassword,
+        KerberosTicket serviceTicket ) throws Exception
     {
-        EncryptionKey serverKey = ticketFactory.getServerKey( serverPrincipal, serverPassword );
-        Ticket serviceTicket = ticketFactory.getTicket( clientPrincipal, serverPrincipal, serverKey );
-
         // Get the session key from the service ticket.
-        byte[] sessionKeyBytes = serviceTicket.getSessionKey().getKeyValue();
-        int keyType = serviceTicket.getSessionKey().getKeyType().getOrdinal();
+        byte[] sessionKeyBytes = serviceTicket.getSessionKey().getEncoded();
+        int keyType = serviceTicket.getSessionKeyType();
+
         sessionKey = new EncryptionKey( EncryptionType.getTypeByOrdinal( keyType ), sessionKeyBytes );
 
         // Generate a new sub-session key.
         try
         {
-            subSessionKey = RandomKeyFactory.getRandomKey( EncryptionType.DES_CBC_MD5 );
+            EncryptionType encryptionType = EncryptionType.getTypeByOrdinal( keyType );
+            subSessionKey = RandomKeyFactory.getRandomKey( encryptionType );
         }
         catch ( KerberosException ke )
         {
@@ -252,21 +261,23 @@ public class ChangePassword
         }
 
         // Generate a new sequence number.
-        sequenceNumber = random.nextInt();
+        sequenceNumber = random.nextInt( Integer.MAX_VALUE );
 
         now = new KerberosTime();
 
         // Build Change Password request.
         ChangePasswordRequestModifier modifier = new ChangePasswordRequestModifier();
 
-        EncryptedData authenticator = getAuthenticator( clientPrincipal );
+        EncryptedData authenticator = getAuthenticator( targetPrincipal );
+
+        Ticket convertedTicket = TicketDecoder.decode( serviceTicket.getEncoded() );
 
         // Make new ap req, aka the "auth header."
         ApplicationRequest applicationRequest = new ApplicationRequest();
         applicationRequest.setMessageType( MessageType.KRB_AP_REQ );
         applicationRequest.setProtocolVersionNumber( 5 );
         applicationRequest.setApOptions( new ApOptions() );
-        applicationRequest.setTicket( serviceTicket );
+        applicationRequest.setTicket( convertedTicket );
         applicationRequest.setEncPart( authenticator );
 
         // Get private message.
@@ -338,5 +349,22 @@ public class ChangePassword
         EncryptedData encryptedAuthenticator = cipherTextHandler.seal( sessionKey, authenticator, KeyUsage.NUMBER11 );
 
         return encryptedAuthenticator;
+    }
+
+
+    private IoConnector getConnector( String transport )
+    {
+        IoConnector connector;
+
+        if ( transport.equals( "UDP" ) )
+        {
+            connector = new DatagramConnector();
+        }
+        else
+        {
+            connector = new SocketConnector();
+        }
+
+        return connector;
     }
 }

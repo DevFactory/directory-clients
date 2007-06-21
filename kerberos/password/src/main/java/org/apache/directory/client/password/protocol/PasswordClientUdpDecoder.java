@@ -21,10 +21,9 @@ package org.apache.directory.client.password.protocol;
 
 
 import java.io.IOException;
-import java.util.Arrays;
 
+import org.apache.directory.server.changepw.io.ChangePasswordErrorDecoder;
 import org.apache.directory.server.changepw.io.ChangePasswordReplyDecoder;
-import org.apache.directory.server.kerberos.shared.io.decoder.ErrorMessageDecoder;
 import org.apache.mina.common.ByteBuffer;
 import org.apache.mina.common.IoSession;
 import org.apache.mina.filter.codec.ProtocolDecoderAdapter;
@@ -37,20 +36,25 @@ import org.apache.mina.filter.codec.ProtocolDecoderOutput;
  */
 public class PasswordClientUdpDecoder extends ProtocolDecoderAdapter
 {
-    private static final byte[] ERROR = new byte[]
-        { ( byte ) 0x7E, ( byte ) 0x78, ( byte ) 0x30, ( byte ) 0x76 };
+    private static final short ERROR = 0;
 
     private ChangePasswordReplyDecoder replyDecoder = new ChangePasswordReplyDecoder();
-    private ErrorMessageDecoder errorDecoder = new ErrorMessageDecoder();
+    private ChangePasswordErrorDecoder errorDecoder = new ChangePasswordErrorDecoder();
 
 
     public void decode( IoSession session, ByteBuffer in, ProtocolDecoderOutput out ) throws IOException
     {
-        byte[] header = new byte[4];
-        in.get( header );
+        // read message length
+        in.getShort();
+
+        // read version
+        in.getShort();
+
+        // read AP_REQ length
+        short header = in.getShort();
         in.rewind();
 
-        if ( Arrays.equals( ERROR, header ) )
+        if ( header == ERROR )
         {
             out.write( errorDecoder.decode( in.buf() ) );
         }
