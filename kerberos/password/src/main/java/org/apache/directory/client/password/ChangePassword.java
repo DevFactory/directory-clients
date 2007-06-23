@@ -223,7 +223,7 @@ public class ChangePassword
         String sentTime = now.toString();
         if ( !replyTime.equals( sentTime ) )
         {
-            log.debug( "Mismatched client time (Expected {}, get {}).", sentTime, replyTime );
+            log.debug( "Mismatched client time (Expected {}, got {}).", sentTime, replyTime );
             throw new PasswordConnectionException( "Mismatched client time." );
         }
 
