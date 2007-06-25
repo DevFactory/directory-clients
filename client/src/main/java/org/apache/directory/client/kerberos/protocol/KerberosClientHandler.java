@@ -44,7 +44,7 @@ public class KerberosClientHandler extends IoHandlerAdapter
     {
         if ( log.isDebugEnabled() )
         {
-            log.debug( session.getRemoteAddress() + " CREATED : " + session.getTransportType() );
+            log.debug( "{} CREATED:  {}", session.getRemoteAddress(), session.getTransportType() );
         }
 
         if ( session.getTransportType() == TransportType.DATAGRAM )
@@ -64,7 +64,7 @@ public class KerberosClientHandler extends IoHandlerAdapter
     {
         if ( log.isDebugEnabled() )
         {
-            log.debug( session.getRemoteAddress() + " RCVD: " + message );
+            log.debug( "{} RCVD:  {}", session.getRemoteAddress(), message );
         }
 
         session.setAttribute( "reply", message );
