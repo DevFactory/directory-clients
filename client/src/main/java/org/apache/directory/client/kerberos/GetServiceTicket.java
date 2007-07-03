@@ -61,6 +61,7 @@ import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticat
 import org.apache.directory.server.kerberos.shared.messages.value.PrincipalName;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBody;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyModifier;
+import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
@@ -215,13 +216,21 @@ public class GetServiceTicket
 
         byte[] sessionKey = repPart.getKey().getKeyValue();
         int keyType = repPart.getKey().getKeyType().getOrdinal();
-        Date endTime = repPart.getEndTime().toDate();
 
-        // might be null
-        boolean[] flags = null;
-        Date authTime = null;
-        Date startTime = null;
-        Date renewTill = null;
+        Date authTime = repPart.getAuthTime().toDate();
+        Date startTime = ( repPart.getStartTime() != null ) ? repPart.getStartTime().toDate() : null; // optional
+        Date endTime = repPart.getEndTime().toDate();
+        Date renewTill = ( repPart.getRenewTill() != null ) ? repPart.getRenewTill().toDate() : null; // optional
+
+        TicketFlags ticketFlags = repPart.getFlags();
+
+        boolean[] flags = new boolean[TicketFlags.MAX_VALUE];
+
+        for ( int i = 0; i < TicketFlags.MAX_VALUE; i++ )
+        {
+            flags[i] = ticketFlags.get( i );
+        }
+
         InetAddress[] clientAddresses = null;
 
         return new KerberosTicket( ticketBytes, client, server, sessionKey, keyType, flags, authTime, startTime,
