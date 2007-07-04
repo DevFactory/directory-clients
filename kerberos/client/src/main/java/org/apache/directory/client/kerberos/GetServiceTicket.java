@@ -254,8 +254,6 @@ public class GetServiceTicket
 
         RequestBodyModifier modifier = new RequestBodyModifier();
 
-        KdcOptions kdcOptions = new KdcOptions();
-
         /*
          If the TGT is not for the realm of the end-server
          then the sname will be for a TGT for the end-realm
@@ -266,6 +264,8 @@ public class GetServiceTicket
         PrincipalName serverName = new PrincipalName( servicePrincipal.getName(), servicePrincipal.getNameType() );
         modifier.setServerName( serverName );
         modifier.setRealm( servicePrincipal.getRealm() );
+
+        KdcOptions kdcOptions = new KdcOptions();
 
         // Set the requested starting time.
         if ( controls.getStartTime() != null )
@@ -285,6 +285,26 @@ public class GetServiceTicket
             KerberosTime renewTime = new KerberosTime( currentTime + controls.getRenewableLifetime() );
             modifier.setRtime( renewTime );
             kdcOptions.set( KdcOptions.RENEWABLE );
+        }
+
+        if ( controls.isProxiable() )
+        {
+            kdcOptions.set( KdcOptions.PROXIABLE );
+        }
+
+        if ( controls.isForwardable() )
+        {
+            kdcOptions.set( KdcOptions.FORWARDABLE );
+        }
+
+        if ( controls.isForwarded() )
+        {
+            kdcOptions.set( KdcOptions.FORWARDED );
+        }
+
+        if ( controls.isProxy() )
+        {
+            kdcOptions.set( KdcOptions.PROXY );
         }
 
         modifier.setKdcOptions( kdcOptions );

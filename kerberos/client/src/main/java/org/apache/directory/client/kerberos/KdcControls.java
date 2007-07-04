@@ -61,6 +61,12 @@ public class KdcControls
     /** Whether proxiable addresses are allowed. */
     private boolean isProxiable = false;
 
+    /** Whether the request is for a proxy ticket. */
+    private boolean isProxy = false;
+
+    /** Whether the request is for a forwarded ticket. */
+    private boolean isForwarded = false;
+
     /** The encryption types. */
     private List<EncryptionType> encryptionTypes = new ArrayList<EncryptionType>();
 
@@ -205,6 +211,28 @@ public class KdcControls
 
 
     /**
+     * Returns whether to request a forwarded ticket.
+     *
+     * @return true if the request is for a forwarded ticket.
+     */
+    public boolean isForwarded()
+    {
+        return isForwarded;
+    }
+
+
+    /**
+     * Sets whether to request a forwarded ticket.
+     *
+     * @param isForwarded
+     */
+    public void setForwarded( boolean isForwarded )
+    {
+        this.isForwarded = isForwarded;
+    }
+
+
+    /**
      * Returns whether to request a proxiable ticket.
      * 
      * @return true if the request is for a proxiable ticket.
@@ -223,6 +251,28 @@ public class KdcControls
     public void setProxiable( boolean isProxiable )
     {
         this.isProxiable = isProxiable;
+    }
+
+
+    /**
+     * Returns whether to request a proxy ticket.
+     * 
+     * @return true if the request is for a proxy ticket.
+     */
+    public boolean isProxy()
+    {
+        return isProxy;
+    }
+
+
+    /**
+     * Sets whether to request a proxy ticket.
+     *
+     * @param isProxy
+     */
+    public void setProxy( boolean isProxy )
+    {
+        this.isProxy = isProxy;
     }
 
 
