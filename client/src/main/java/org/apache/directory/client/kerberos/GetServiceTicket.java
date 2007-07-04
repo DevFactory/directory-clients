@@ -174,7 +174,7 @@ public class GetServiceTicket
         int errorCode = error.getErrorCode();
         String errorText = error.getExplanatoryText();
 
-        throw new KdcConnectionException( errorText + " (" + errorCode + ")" );
+        throw new KdcConnectionException( errorText, errorCode );
     }
 
 
@@ -254,15 +254,6 @@ public class GetServiceTicket
 
         RequestBodyModifier modifier = new RequestBodyModifier();
 
-        /*
-         Forwardable Ticket false
-         Forwarded Ticket false
-         Proxiable Ticket false
-         Proxy Ticket false
-         Postdated Ticket false
-         Renewable Ticket false
-         Initial Ticket false
-         */
         KdcOptions kdcOptions = new KdcOptions();
 
         /*

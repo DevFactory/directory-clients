@@ -34,6 +34,11 @@ public class KdcConnectionException extends Exception
      */
     private static final long serialVersionUID = -3882166764471452526L;
 
+    /**
+     * The Kerberos error code associated with this exception.
+     */
+    private int errorCode = 0;
+
 
     /**
      * @param message
@@ -41,6 +46,17 @@ public class KdcConnectionException extends Exception
     public KdcConnectionException( String message )
     {
         super( message );
+    }
+
+
+    /**
+     * @param message
+     * @param errorCode
+     */
+    public KdcConnectionException( String message, int errorCode )
+    {
+        super( message );
+        this.errorCode = errorCode;
     }
 
 
@@ -60,5 +76,22 @@ public class KdcConnectionException extends Exception
     public KdcConnectionException( String message, Throwable cause )
     {
         super( message, cause );
+    }
+
+
+    /**
+     * Gets the protocol error code associated with this {@link KdcConnectionException}.
+     *
+     * @return The error code associated with this {@link KdcConnectionException}.
+     */
+    public int getErrorCode()
+    {
+        return this.errorCode;
+    }
+
+
+    public String getMessage()
+    {
+        return super.getMessage() + " (" + errorCode + ")";
     }
 }
