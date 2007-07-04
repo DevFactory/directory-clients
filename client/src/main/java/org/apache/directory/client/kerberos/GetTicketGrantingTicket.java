@@ -241,8 +241,6 @@ public class GetTicketGrantingTicket
         KerberosKey kerberosKey = new KerberosKey( clientPrincipal, password.toCharArray(), "DES" );
         clientKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
 
-        KdcOptions kdcOptions = new KdcOptions();
-
         PreAuthenticationData[] paData = new PreAuthenticationData[1];
 
         if ( controls.isUsePaEncTimestamp() )
@@ -280,20 +278,41 @@ public class GetTicketGrantingTicket
             .getNameType() );
         modifier.setServerName( serverName );
 
-        if ( kdcOptions.get( KdcOptions.POSTDATED ) )
+        KdcOptions kdcOptions = new KdcOptions();
+
+        // Set the requested starting time.
+        if ( controls.getStartTime() != null )
         {
-            // body.from := requested starting time;
+            KerberosTime fromTime = new KerberosTime( controls.getStartTime() );
+            modifier.setFrom( fromTime );
+            kdcOptions.set( KdcOptions.POSTDATED );
         }
 
         long currentTime = System.currentTimeMillis();
 
-        KerberosTime endTime = new KerberosTime( currentTime + KdcControls.DAY );
+        KerberosTime endTime = new KerberosTime( currentTime + controls.getLifeTime() );
         modifier.setTill( endTime );
 
-        if ( kdcOptions.get( KdcOptions.RENEWABLE ) )
+        if ( controls.getRenewableLifetime() > 0 )
         {
-            KerberosTime rTime = new KerberosTime( currentTime + KdcControls.WEEK );
-            modifier.setRtime( rTime );
+            KerberosTime renewTime = new KerberosTime( currentTime + controls.getRenewableLifetime() );
+            modifier.setRtime( renewTime );
+            kdcOptions.set( KdcOptions.RENEWABLE );
+        }
+
+        if ( controls.isAllowPostdate() )
+        {
+            kdcOptions.set( KdcOptions.ALLOW_POSTDATE );
+        }
+
+        if ( controls.isProxiable() )
+        {
+            kdcOptions.set( KdcOptions.PROXIABLE );
+        }
+
+        if ( controls.isForwardable() )
+        {
+            kdcOptions.set( KdcOptions.FORWARDABLE );
         }
 
         modifier.setKdcOptions( kdcOptions );
