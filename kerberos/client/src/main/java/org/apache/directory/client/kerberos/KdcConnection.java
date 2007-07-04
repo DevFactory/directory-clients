@@ -20,15 +20,8 @@
 package org.apache.directory.client.kerberos;
 
 
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
-
-import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 
 
 /**
@@ -105,7 +98,7 @@ public class KdcConnection
     public KerberosTicket getTicketGrantingTicket( KerberosPrincipal clientPrincipal, String password )
         throws KdcConnectionException
     {
-        return getTicketGrantingTicket( clientPrincipal, password, getDefaultKdcControls() );
+        return getTicketGrantingTicket( clientPrincipal, password, new KdcControls() );
     }
 
 
@@ -137,7 +130,7 @@ public class KdcConnection
     public KerberosTicket getServiceTicket( KerberosTicket tgt, KerberosPrincipal servicePrincipal )
         throws KdcConnectionException
     {
-        return getServiceTicket( tgt, servicePrincipal, getDefaultKdcControls() );
+        return getServiceTicket( tgt, servicePrincipal, new KdcControls() );
     }
 
 
@@ -164,40 +157,5 @@ public class KdcConnection
     public void disconnect()
     {
         // Wouldn't do anything for UDP.
-    }
-
-
-    private KdcControls getDefaultKdcControls()
-    {
-        List<EncryptionType> encryptionTypes = new ArrayList<EncryptionType>();
-        encryptionTypes.add( EncryptionType.DES_CBC_MD5 );
-
-        KdcControls controls = new KdcControls();
-        controls.setEncryptionTypes( encryptionTypes );
-        controls.setUsePaEncTimestamp( true );
-
-        // default is UDP.  Set to 1 to use TCP.
-        controls.setUdpPreferenceLimit( 1 );
-
-        // useful dates
-        long currentTime = System.currentTimeMillis();
-        Date now = new Date( currentTime );
-        Date oneDay = new Date( currentTime + KdcControls.DAY );
-        Date oneWeek = new Date( currentTime + KdcControls.WEEK );
-
-        // flags & times
-        // if the start time exceeds "now" by more than the clockskew, consider it a POSTDATED request.
-        controls.setStartTime( now );
-        controls.setEndTime( oneDay );
-        controls.setRenewTime( oneWeek );
-
-        // even less important
-        controls.setForwardable( true );
-        controls.setProxiable( true );
-
-        List<InetAddress> clientAddresses = new ArrayList<InetAddress>();
-        controls.setClientAddresses( clientAddresses );
-
-        return controls;
     }
 }
