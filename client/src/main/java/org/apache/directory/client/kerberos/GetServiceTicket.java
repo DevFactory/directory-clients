@@ -277,7 +277,7 @@ public class GetServiceTicket
         modifier.setRealm( servicePrincipal.getRealm() );
 
         // Set the requested starting time.
-        if ( controls.isPostdated() )
+        if ( controls.getStartTime() != null )
         {
             KerberosTime fromTime = new KerberosTime( controls.getStartTime() );
             modifier.setFrom( fromTime );
@@ -286,12 +286,12 @@ public class GetServiceTicket
 
         long currentTime = System.currentTimeMillis();
 
-        KerberosTime endTime = new KerberosTime( currentTime + KdcControls.DAY );
+        KerberosTime endTime = new KerberosTime( currentTime + controls.getLifeTime() );
         modifier.setTill( endTime );
 
-        if ( controls.isRenewable() )
+        if ( controls.getRenewableLifetime() > 0 )
         {
-            KerberosTime renewTime = new KerberosTime( currentTime + KdcControls.WEEK );
+            KerberosTime renewTime = new KerberosTime( currentTime + controls.getRenewableLifetime() );
             modifier.setRtime( renewTime );
             kdcOptions.set( KdcOptions.RENEWABLE );
         }

@@ -30,6 +30,10 @@ import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionT
 
 /**
  * Parameters for controlling a connection to a Kerberos server (KDC).
+ * 
+ * 3.1.1.  Generation of KRB_AS_REQ Message
+ * 
+ * The client may specify a number of options in the initial request.
  *
  * @author <a href="mailto:dev@directory.apache.org">Apache Directory Project</a>
  * @version $Rev$, $Date$
@@ -45,56 +49,17 @@ public class KdcControls
     /** The number of milliseconds in a week. */
     public static final int WEEK = MINUTE * 10080;
 
-    /** The default allowed clockskew */
-    private static final long DEFAULT_ALLOWED_CLOCKSKEW = 5 * MINUTE;
-
-    /** The default for requiring encrypted timestamps */
-    private static final boolean DEFAULT_USE_PA_ENC_TIMESTAMP = true;
-
-    /** The default for the maximum ticket lifetime */
-    private static final int DEFAULT_TGS_MAXIMUM_TICKET_LIFETIME = DAY;
-
-    /** The default for the maximum renewable lifetime */
-    private static final int DEFAULT_TGS_MAXIMUM_RENEWABLE_LIFETIME = WEEK;
-
-    /** The default for allowing forwardable tickets */
-    private static final boolean DEFAULT_TGS_FORWARDABLE = false;
-
-    /** The default for allowing proxiable tickets */
-    private static final boolean DEFAULT_TGS_PROXIABLE = false;
-
-    /** The default for allowing postdatable tickets */
-    private static final boolean DEFAULT_TGS_POSTDATED = false;
-
-    /** The default for allowing renewable tickets */
-    private static final boolean DEFAULT_TGS_RENEWABLE = true;
-
-    /** The default UDP preference limit */
-    private static final int DEFAULT_UDP_PREFERENCE_LIMIT = 1500;
-
     /** The allowed clock skew. */
-    private long allowedClockSkew = DEFAULT_ALLOWED_CLOCKSKEW;
+    private long allowedClockSkew = 5 * MINUTE;
 
-    /** Whether pre-authentication by encrypted timestamp is required. */
-    private boolean usePaEncTimestamp = DEFAULT_USE_PA_ENC_TIMESTAMP;
-
-    /** The maximum ticket lifetime. */
-    private long maximumTicketLifetime = DEFAULT_TGS_MAXIMUM_TICKET_LIFETIME;
-
-    /** The maximum renewable lifetime. */
-    private long maximumRenewableLifetime = DEFAULT_TGS_MAXIMUM_RENEWABLE_LIFETIME;
+    /** Whether pre-authentication by encrypted timestamp is used. */
+    private boolean usePaEncTimestamp = true;
 
     /** Whether forwardable addresses are allowed. */
-    private boolean isForwardable = DEFAULT_TGS_FORWARDABLE;
+    private boolean isForwardable = false;
 
     /** Whether proxiable addresses are allowed. */
-    private boolean isProxiable = DEFAULT_TGS_PROXIABLE;
-
-    /** Whether postdating is allowed. */
-    private boolean isPostdated = DEFAULT_TGS_POSTDATED;
-
-    /** Whether renewable tickets are allowed. */
-    private boolean isRenewable = DEFAULT_TGS_RENEWABLE;
+    private boolean isProxiable = false;
 
     /** The encryption types. */
     private List<EncryptionType> encryptionTypes = new ArrayList<EncryptionType>();
@@ -103,11 +68,26 @@ public class KdcControls
     private List<InetAddress> clientAddresses = new ArrayList<InetAddress>();
 
     /** The UDP preference limit. */
-    private int udpPreferenceLimit = DEFAULT_UDP_PREFERENCE_LIMIT;
+    private int udpPreferenceLimit = 1500;
 
+    /** The ticket lifetime. */
+    private long lifeTime = DAY;
+
+    /** The ticket start time. */
     private Date startTime;
-    private Date endTime;
-    private Date renewTime;
+
+    /** The renewable lifetime. */
+    private long renewableLifetime;
+
+    /** Whether to allow postdating of derivative tickets. */
+    private boolean isAllowPostdate;
+
+    /**
+     * Whether a renewable ticket will be accepted in lieu of a non-renewable ticket if the
+     * requested ticket expiration date cannot be satisfied by a non-renewable ticket (due to
+     * configuration constraints).
+     */
+    private boolean isRenewableOk;
 
 
     /**
@@ -140,9 +120,9 @@ public class KdcControls
 
 
     /**
-     * Returns whether pre-authentication by encrypted timestamp is used.
+     * Returns whether pre-authentication by encrypted timestamp is to be performed.
      *
-     * @return Whether pre-authentication by encrypted timestamp is used.
+     * @return Whether pre-authentication by encrypted timestamp is to be performed.
      */
     public boolean isUsePaEncTimestamp()
     {
@@ -151,7 +131,7 @@ public class KdcControls
 
 
     /**
-     * @param usePaEncTimestamp Whether to use a encrypted timestamp pre-authentication.
+     * @param usePaEncTimestamp Whether to use encrypted timestamp pre-authentication.
      */
     public void setUsePaEncTimestamp( boolean usePaEncTimestamp )
     {
@@ -191,58 +171,14 @@ public class KdcControls
 
 
     /**
-     * Sets the start time. If the start time exceeds "now" by more than the
-     * clockskew, consider it a POSTDATED request.
+     * Request a postdated ticket, valid starting at the specified start time.  Postdated
+     * tickets are issued in an invalid state and must be validated by the KDC before use.
      * 
      * @param startTime 
      */
     public void setStartTime( Date startTime )
     {
         this.startTime = startTime;
-    }
-
-
-    /**
-     * Returns the end time.
-     *
-     * @return The end time.
-     */
-    public Date getEndTime()
-    {
-        return endTime;
-    }
-
-
-    /**
-     * Sets the end time.
-     *
-     * @param endTime
-     */
-    public void setEndTime( Date endTime )
-    {
-        this.endTime = endTime;
-    }
-
-
-    /**
-     * Returns the renew time.
-     *
-     * @return The renew time.
-     */
-    public Date getRenewTime()
-    {
-        return renewTime;
-    }
-
-
-    /**
-     * Sets the renew time.
-     *
-     * @param renewTime
-     */
-    public void setRenewTime( Date renewTime )
-    {
-        this.renewTime = renewTime;
     }
 
 
@@ -269,28 +205,6 @@ public class KdcControls
 
 
     /**
-     * Returns whether to request a postdated ticket.
-     * 
-     * @return true if the request is for a postdated ticket.
-     */
-    public boolean isPostdated()
-    {
-        return isPostdated;
-    }
-
-
-    /**
-     * Sets whether to request a postdated ticket.
-     * 
-     * @param isPostdated
-     */
-    public void setPostdated( boolean isPostdated )
-    {
-        this.isPostdated = isPostdated;
-    }
-
-
-    /**
      * Returns whether to request a proxiable ticket.
      * 
      * @return true if the request is for a proxiable ticket.
@@ -313,60 +227,45 @@ public class KdcControls
 
 
     /**
-     * Returns whether to request a renewable ticket.
+     * @return The lifetime in milliseconds.
+     */
+    public long getLifeTime()
+    {
+        return lifeTime;
+    }
+
+
+    /**
+     * Requests a ticket with the specified lifetime.  The value for lifetime is
+     * in milliseconds.  Constants are provided for MINUTE, DAY, and WEEK.
      * 
-     * @return true if the request is for a renewable ticket.
+     * @param lifeTime The lifetime to set.
      */
-    public boolean isRenewable()
+    public void setLifeTime( long lifeTime )
     {
-        return isRenewable;
+        this.lifeTime = lifeTime;
     }
 
 
     /**
-     * Sets whether to request a renewable ticket.
+     * @return The renewable lifetime.
+     */
+    public long getRenewableLifetime()
+    {
+        return renewableLifetime;
+    }
+
+
+    /**
+     * Requests a ticket with the specified total lifetime.  The value for
+     * lifetime is in milliseconds.  Constants are provided for MINUTE, DAY,
+     * and WEEK.
      * 
-     * @param isRenewable
+     * @param renewableLifetime The renewable lifetime to set.
      */
-    public void setRenewable( boolean isRenewable )
+    public void setRenewableLifetime( long renewableLifetime )
     {
-        this.isRenewable = isRenewable;
-    }
-
-
-    /**
-     * @return The maximumTicketLifetime.
-     */
-    public long getMaximumTicketLifetime()
-    {
-        return maximumTicketLifetime;
-    }
-
-
-    /**
-     * @param maximumTicketLifetime The maximumTicketLifetime to set.
-     */
-    public void setMaximumTicketLifetime( long maximumTicketLifetime )
-    {
-        this.maximumTicketLifetime = maximumTicketLifetime;
-    }
-
-
-    /**
-     * @return The maximumRenewableLifetime.
-     */
-    public long getMaximumRenewableLifetime()
-    {
-        return maximumRenewableLifetime;
-    }
-
-
-    /**
-     * @param maximumRenewableLifetime The maximumRenewableLifetime to set.
-     */
-    public void setMaximumRenewableLifetime( long maximumRenewableLifetime )
-    {
-        this.maximumRenewableLifetime = maximumRenewableLifetime;
+        this.renewableLifetime = renewableLifetime;
     }
 
 
@@ -409,5 +308,49 @@ public class KdcControls
     public void setClientAddresses( List<InetAddress> clientAddresses )
     {
         this.clientAddresses = clientAddresses;
+    }
+
+
+    /**
+     * Returns whether postdating is allowed.
+     * 
+     * @return true if postdating is allowed.
+     */
+    public boolean isAllowPostdate()
+    {
+        return isAllowPostdate;
+    }
+
+
+    /**
+     * Sets whether postdating is allowed.
+     * 
+     * @param isAllowPostdate Whether postdating is allowed.
+     */
+    public void setAllowPostdate( boolean isAllowPostdate )
+    {
+        this.isAllowPostdate = isAllowPostdate;
+    }
+
+
+    /**
+     * Returns whether renewable tickets are OK.
+     * 
+     * @return true if renewable tickets are OK.
+     */
+    public boolean isRenewableOk()
+    {
+        return isRenewableOk;
+    }
+
+
+    /**
+     * Sets whether renewable tickets are OK.
+     * 
+     * @param isRenewableOk Whether renewable tickets are OK.
+     */
+    public void setRenewableOk( boolean isRenewableOk )
+    {
+        this.isRenewableOk = isRenewableOk;
     }
 }
