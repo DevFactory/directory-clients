@@ -164,7 +164,7 @@ public class GetTicketGrantingTicket
         int errorCode = error.getErrorCode();
         String errorText = error.getExplanatoryText();
 
-        throw new KdcConnectionException( errorText + " (" + errorCode + ")" );
+        throw new KdcConnectionException( errorText, errorCode );
     }
 
 
@@ -241,15 +241,6 @@ public class GetTicketGrantingTicket
         KerberosKey kerberosKey = new KerberosKey( clientPrincipal, password.toCharArray(), "DES" );
         clientKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
 
-        /*
-         Forwardable Ticket false
-         Forwarded Ticket false
-         Proxiable Ticket false
-         Proxy Ticket false
-         Postdated Ticket false
-         Renewable Ticket false
-         Initial Ticket false
-         */
         KdcOptions kdcOptions = new KdcOptions();
 
         PreAuthenticationData[] paData = new PreAuthenticationData[1];
