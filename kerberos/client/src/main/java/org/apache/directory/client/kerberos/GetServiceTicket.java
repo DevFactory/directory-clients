@@ -337,10 +337,8 @@ public class GetServiceTicket
         int pvno = 5;
         MessageType messageType = MessageType.KRB_TGS_REQ;
 
-        // TODO - make body encoder not require KdcRequest
-        KdcRequest req = new KdcRequest( pvno, messageType, null, requestBody );
         KdcRequestEncoder bodyEncoder = new KdcRequestEncoder();
-        byte[] bodyBytes = bodyEncoder.encodeBody( req );
+        byte[] bodyBytes = bodyEncoder.encodeRequestBody( requestBody );
 
         ChecksumHandler checksumHandler = new ChecksumHandler();
         Checksum checksum = checksumHandler.calculateChecksum( ChecksumType.RSA_MD5, bodyBytes, null, KeyUsage.NUMBER8 );
