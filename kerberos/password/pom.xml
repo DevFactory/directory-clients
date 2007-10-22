@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.apache.directory.client.kerberos</groupId>
     <artifactId>build</artifactId>
-    <version>1.5.1-SNAPSHOT</version>
+    <version>1.5.2-SNAPSHOT</version>
   </parent>
   <artifactId>apacheds-password-client</artifactId>
   <name>Apache Directory Password Client</name>
@@ -12,4 +12,18 @@
   <description>
     Change Password client.
   </description>
+
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-kerberos-shared</artifactId>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-protocol-changepw</artifactId>
+    </dependency>
+  </dependencies>
+
 </project>

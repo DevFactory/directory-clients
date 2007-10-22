@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
+import java.text.ParseException;
 import java.util.Date;
 
 import javax.security.auth.kerberos.KerberosKey;
@@ -233,7 +234,7 @@ public class GetTicketGrantingTicket
      * Based on RFC 1510, A.1.  KRB_AS_REQ generation
      */
     private KdcRequest getKdcRequest( KerberosPrincipal clientPrincipal, String password, KdcControls controls )
-        throws IOException
+        throws IOException, ParseException
     {
         RequestBodyModifier modifier = new RequestBodyModifier();
 
