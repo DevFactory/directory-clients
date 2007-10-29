@@ -35,6 +35,8 @@ import org.apache.directory.server.changepw.messages.ChangePasswordError;
 import org.apache.directory.server.changepw.messages.ChangePasswordReply;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequest;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequestModifier;
+import org.apache.directory.server.kerberos.shared.KerberosConstants;
+import org.apache.directory.server.kerberos.shared.KerberosMessageType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
@@ -43,7 +45,6 @@ import org.apache.directory.server.kerberos.shared.exceptions.KerberosException;
 import org.apache.directory.server.kerberos.shared.io.decoder.TicketDecoder;
 import org.apache.directory.server.kerberos.shared.messages.ApplicationRequest;
 import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
-import org.apache.directory.server.kerberos.shared.messages.MessageType;
 import org.apache.directory.server.kerberos.shared.messages.application.ApplicationReply;
 import org.apache.directory.server.kerberos.shared.messages.application.PrivateMessage;
 import org.apache.directory.server.kerberos.shared.messages.components.Authenticator;
@@ -274,8 +275,8 @@ public class ChangePassword
 
         // Make new ap req, aka the "auth header."
         ApplicationRequest applicationRequest = new ApplicationRequest();
-        applicationRequest.setMessageType( MessageType.KRB_AP_REQ );
-        applicationRequest.setProtocolVersionNumber( 5 );
+        applicationRequest.setMessageType( KerberosMessageType.AP_REQ );
+        applicationRequest.setProtocolVersionNumber( KerberosConstants.KERBEROS_V5 );
         applicationRequest.setApOptions( new ApOptions() );
         applicationRequest.setTicket( convertedTicket );
         applicationRequest.setEncPart( authenticator );
@@ -315,8 +316,8 @@ public class ChangePassword
 
         // Make private message with private message part.
         PrivateMessage privateMessage = new PrivateMessage();
-        privateMessage.setProtocolVersionNumber( 5 );
-        privateMessage.setMessageType( MessageType.ENC_PRIV_PART );
+        privateMessage.setProtocolVersionNumber( KerberosConstants.KERBEROS_V5 );
+        privateMessage.setMessageType( KerberosMessageType.ENC_PRIV_PART );
         privateMessage.setEncryptedPart( encryptedPrivPart );
 
         return privateMessage;

@@ -30,6 +30,8 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
+import org.apache.directory.server.kerberos.shared.KerberosConstants;
+import org.apache.directory.server.kerberos.shared.KerberosMessageType;
 import org.apache.directory.server.kerberos.shared.crypto.checksum.ChecksumHandler;
 import org.apache.directory.server.kerberos.shared.crypto.checksum.ChecksumType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
@@ -44,7 +46,6 @@ import org.apache.directory.server.kerberos.shared.messages.ApplicationRequest;
 import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.directory.server.kerberos.shared.messages.KdcReply;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
-import org.apache.directory.server.kerberos.shared.messages.MessageType;
 import org.apache.directory.server.kerberos.shared.messages.components.Authenticator;
 import org.apache.directory.server.kerberos.shared.messages.components.AuthenticatorModifier;
 import org.apache.directory.server.kerberos.shared.messages.components.EncKdcRepPart;
@@ -55,13 +56,12 @@ import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.KdcOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationData;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataModifier;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataType;
+import org.apache.directory.server.kerberos.shared.messages.value.PaData;
 import org.apache.directory.server.kerberos.shared.messages.value.PrincipalName;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBody;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyModifier;
 import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
+import org.apache.directory.server.kerberos.shared.messages.value.types.PaDataType;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
@@ -334,8 +334,8 @@ public class GetServiceTicket
 
         RequestBody requestBody = modifier.getRequestBody();
 
-        int pvno = 5;
-        MessageType messageType = MessageType.KRB_TGS_REQ;
+        int pvno = KerberosConstants.KERBEROS_V5;
+        KerberosMessageType messageType = KerberosMessageType.TGS_REQ;
 
         KdcRequestEncoder bodyEncoder = new KdcRequestEncoder();
         byte[] bodyBytes = bodyEncoder.encodeRequestBody( requestBody );
@@ -343,10 +343,10 @@ public class GetServiceTicket
         ChecksumHandler checksumHandler = new ChecksumHandler();
         Checksum checksum = checksumHandler.calculateChecksum( ChecksumType.RSA_MD5, bodyBytes, null, KeyUsage.NUMBER8 );
 
-        PreAuthenticationData[] paData = new PreAuthenticationData[1];
+        PaData[] paData = new PaData[1];
 
-        PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
-        preAuth.setDataType( PreAuthenticationDataType.PA_TGS_REQ );
+        PaData preAuth = new PaData();
+        preAuth.setPaDataType( PaDataType.PA_TGS_REQ );
 
         // Generate a new sequence number.
         sequenceNumber = random.nextInt();
@@ -358,7 +358,7 @@ public class GetServiceTicket
 
         // Make new ap req, aka the "auth header."
         ApplicationRequest applicationRequest = new ApplicationRequest();
-        applicationRequest.setMessageType( MessageType.KRB_AP_REQ );
+        applicationRequest.setMessageType( KerberosMessageType.AP_REQ );
         applicationRequest.setProtocolVersionNumber( 5 );
         applicationRequest.setApOptions( new ApOptions() );
         applicationRequest.setTicket( convertedTicket );
@@ -367,9 +367,9 @@ public class GetServiceTicket
         ApplicationRequestEncoder encoder = new ApplicationRequestEncoder();
         byte[] encodedApReq = encoder.encode( applicationRequest );
 
-        preAuth.setDataValue( encodedApReq );
+        preAuth.setPaDataValue( encodedApReq );
 
-        paData[0] = preAuth.getPreAuthenticationData();
+        paData[0] = preAuth;
 
         return new KdcRequest( pvno, messageType, paData, requestBody );
     }

@@ -32,6 +32,8 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
+import org.apache.directory.server.kerberos.shared.KerberosConstants;
+import org.apache.directory.server.kerberos.shared.KerberosMessageType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
@@ -41,7 +43,6 @@ import org.apache.directory.server.kerberos.shared.io.encoder.TicketEncoder;
 import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.directory.server.kerberos.shared.messages.KdcReply;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
-import org.apache.directory.server.kerberos.shared.messages.MessageType;
 import org.apache.directory.server.kerberos.shared.messages.components.EncKdcRepPart;
 import org.apache.directory.server.kerberos.shared.messages.components.Ticket;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
@@ -49,13 +50,12 @@ import org.apache.directory.server.kerberos.shared.messages.value.EncryptedTimeS
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.KdcOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationData;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataModifier;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataType;
+import org.apache.directory.server.kerberos.shared.messages.value.PaData;
 import org.apache.directory.server.kerberos.shared.messages.value.PrincipalName;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBody;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyModifier;
 import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
+import org.apache.directory.server.kerberos.shared.messages.value.types.PaDataType;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
@@ -242,7 +242,7 @@ public class GetTicketGrantingTicket
         KerberosKey kerberosKey = new KerberosKey( clientPrincipal, password.toCharArray(), "DES" );
         clientKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
 
-        PreAuthenticationData[] paData = new PreAuthenticationData[1];
+        PaData[] paData = new PaData[1];
 
         if ( controls.isUsePaEncTimestamp() )
         {
@@ -264,11 +264,11 @@ public class GetTicketGrantingTicket
 
             byte[] encodedEncryptedData = EncryptedDataEncoder.encode( encryptedData );
 
-            PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
-            preAuth.setDataType( PreAuthenticationDataType.PA_ENC_TIMESTAMP );
-            preAuth.setDataValue( encodedEncryptedData );
+            PaData preAuth = new PaData();
+            preAuth.setPaDataType( PaDataType.PA_ENC_TIMESTAMP );
+            preAuth.setPaDataValue( encodedEncryptedData );
 
-            paData[0] = preAuth.getPreAuthenticationData();
+            paData[0] = preAuth;
         }
 
         PrincipalName clientName = new PrincipalName( clientPrincipal.getName(), clientPrincipal.getNameType() );
@@ -338,8 +338,8 @@ public class GetTicketGrantingTicket
 
         RequestBody requestBody = modifier.getRequestBody();
 
-        int pvno = 5;
-        MessageType messageType = MessageType.KRB_AS_REQ;
+        int pvno = KerberosConstants.KERBEROS_V5;
+        KerberosMessageType messageType = KerberosMessageType.AS_REQ;
 
         return new KdcRequest( pvno, messageType, paData, requestBody );
     }
