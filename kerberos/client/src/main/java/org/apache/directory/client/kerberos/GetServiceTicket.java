@@ -25,6 +25,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
@@ -60,7 +62,8 @@ import org.apache.directory.server.kerberos.shared.messages.value.PaData;
 import org.apache.directory.server.kerberos.shared.messages.value.PrincipalName;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBody;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyModifier;
-import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
+import org.apache.directory.server.kerberos.shared.messages.value.flags.TicketFlag;
+import org.apache.directory.server.kerberos.shared.messages.value.flags.TicketFlags;
 import org.apache.directory.server.kerberos.shared.messages.value.types.PaDataType;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
@@ -224,11 +227,11 @@ public class GetServiceTicket
 
         TicketFlags ticketFlags = repPart.getFlags();
 
-        boolean[] flags = new boolean[TicketFlags.MAX_VALUE];
+        boolean[] flags = new boolean[TicketFlag.MAX_VALUE.getOrdinal()];
 
-        for ( int i = 0; i < TicketFlags.MAX_VALUE; i++ )
+        for ( int i = 0; i < TicketFlag.MAX_VALUE.getOrdinal(); i++ )
         {
-            flags[i] = ticketFlags.get( i );
+            flags[i] = ticketFlags.isFlagSet( i );
         }
 
         InetAddress[] clientAddresses = null;
@@ -311,8 +314,8 @@ public class GetServiceTicket
 
         modifier.setNonce( random.nextInt() );
 
-        EncryptionType[] encryptionTypes = new EncryptionType[1];
-        encryptionTypes[0] = EncryptionType.DES_CBC_MD5;
+        Set<EncryptionType> encryptionTypes = new HashSet<EncryptionType>();
+        encryptionTypes.add( EncryptionType.DES_CBC_MD5 );
 
         modifier.setEType( encryptionTypes );
 
