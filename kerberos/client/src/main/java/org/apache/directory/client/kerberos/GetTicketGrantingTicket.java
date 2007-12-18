@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
+import java.text.ParseException;
+import java.util.Collections;
 import java.util.Date;
 
 import javax.security.auth.kerberos.KerberosKey;
@@ -31,6 +33,7 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
+import org.apache.directory.server.kerberos.shared.KerberosMessageType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
@@ -40,7 +43,6 @@ import org.apache.directory.server.kerberos.shared.io.encoder.TicketEncoder;
 import org.apache.directory.server.kerberos.shared.messages.ErrorMessage;
 import org.apache.directory.server.kerberos.shared.messages.KdcReply;
 import org.apache.directory.server.kerberos.shared.messages.KdcRequest;
-import org.apache.directory.server.kerberos.shared.messages.MessageType;
 import org.apache.directory.server.kerberos.shared.messages.components.EncKdcRepPart;
 import org.apache.directory.server.kerberos.shared.messages.components.Ticket;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
@@ -48,13 +50,12 @@ import org.apache.directory.server.kerberos.shared.messages.value.EncryptedTimeS
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.KdcOptions;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationData;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataModifier;
-import org.apache.directory.server.kerberos.shared.messages.value.PreAuthenticationDataType;
+import org.apache.directory.server.kerberos.shared.messages.value.PaData;
 import org.apache.directory.server.kerberos.shared.messages.value.PrincipalName;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBody;
 import org.apache.directory.server.kerberos.shared.messages.value.RequestBodyModifier;
-import org.apache.directory.server.kerberos.shared.messages.value.TicketFlags;
+import org.apache.directory.server.kerberos.shared.messages.value.flags.TicketFlags;
+import org.apache.directory.server.kerberos.shared.messages.value.types.PaDataType;
 import org.apache.mina.common.ConnectFuture;
 import org.apache.mina.common.IoConnector;
 import org.apache.mina.common.IoSession;
@@ -213,11 +214,11 @@ public class GetTicketGrantingTicket
 
         TicketFlags ticketFlags = repPart.getFlags();
 
-        boolean[] flags = new boolean[TicketFlags.MAX_VALUE];
+        boolean[] flags = new boolean[TicketFlags.MAX_SIZE];
 
-        for ( int i = 0; i < TicketFlags.MAX_VALUE; i++ )
+        for ( int i = 0; i < TicketFlags.MAX_SIZE; i++ )
         {
-            flags[i] = ticketFlags.get( i );
+            flags[i] = ticketFlags.getBit( i );
         }
 
         InetAddress[] clientAddresses = null;
@@ -233,7 +234,7 @@ public class GetTicketGrantingTicket
      * Based on RFC 1510, A.1.  KRB_AS_REQ generation
      */
     private KdcRequest getKdcRequest( KerberosPrincipal clientPrincipal, String password, KdcControls controls )
-        throws IOException
+        throws IOException, ParseException
     {
         RequestBodyModifier modifier = new RequestBodyModifier();
 
@@ -241,7 +242,7 @@ public class GetTicketGrantingTicket
         KerberosKey kerberosKey = new KerberosKey( clientPrincipal, password.toCharArray(), "DES" );
         clientKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
 
-        PreAuthenticationData[] paData = new PreAuthenticationData[1];
+        PaData[] paData = new PaData[1];
 
         if ( controls.isUsePaEncTimestamp() )
         {
@@ -263,11 +264,9 @@ public class GetTicketGrantingTicket
 
             byte[] encodedEncryptedData = EncryptedDataEncoder.encode( encryptedData );
 
-            PreAuthenticationDataModifier preAuth = new PreAuthenticationDataModifier();
-            preAuth.setDataType( PreAuthenticationDataType.PA_ENC_TIMESTAMP );
-            preAuth.setDataValue( encodedEncryptedData );
-
-            paData[0] = preAuth.getPreAuthenticationData();
+            paData[0] = new PaData();
+            paData[0].setPaDataType( PaDataType.PA_ENC_TIMESTAMP );
+            paData[0].setPaDataValue( encodedEncryptedData );
         }
 
         PrincipalName clientName = new PrincipalName( clientPrincipal.getName(), clientPrincipal.getNameType() );
@@ -319,10 +318,7 @@ public class GetTicketGrantingTicket
 
         modifier.setNonce( random.nextInt() );
 
-        EncryptionType[] encryptionTypes = new EncryptionType[1];
-        encryptionTypes[0] = EncryptionType.DES_CBC_MD5;
-
-        modifier.setEType( encryptionTypes );
+        modifier.setEType( Collections.singleton( EncryptionType.DES_CBC_MD5 ) );
 
         /*
          if ( user supplied addresses )
@@ -338,7 +334,7 @@ public class GetTicketGrantingTicket
         RequestBody requestBody = modifier.getRequestBody();
 
         int pvno = 5;
-        MessageType messageType = MessageType.KRB_AS_REQ;
+        KerberosMessageType messageType = KerberosMessageType.AS_REQ;
 
         return new KdcRequest( pvno, messageType, paData, requestBody );
     }
