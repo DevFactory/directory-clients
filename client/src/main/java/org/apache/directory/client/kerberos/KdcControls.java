@@ -21,9 +21,10 @@ package org.apache.directory.client.kerberos;
 
 
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
 
@@ -68,10 +69,10 @@ public class KdcControls
     private boolean isForwarded = false;
 
     /** The encryption types. */
-    private List<EncryptionType> encryptionTypes = new ArrayList<EncryptionType>();
+    private Set<EncryptionType> encryptionTypes = new LinkedHashSet<EncryptionType>();
 
     /** The client addresses. */
-    private List<InetAddress> clientAddresses = new ArrayList<InetAddress>();
+    private Set<InetAddress> clientAddresses = new HashSet<InetAddress>();
 
     /** The UDP preference limit. */
     private int udpPreferenceLimit = 1500;
@@ -324,7 +325,7 @@ public class KdcControls
      *
      * @return The encryption types.
      */
-    public List<EncryptionType> getEncryptionTypes()
+    public Set<EncryptionType> getEncryptionTypes()
     {
         return encryptionTypes;
     }
@@ -333,7 +334,7 @@ public class KdcControls
     /**
      * @param encryptionTypes The encryption types to set.
      */
-    public void setEncryptionTypes( List<EncryptionType> encryptionTypes )
+    public void setEncryptionTypes( Set<EncryptionType> encryptionTypes )
     {
         this.encryptionTypes = encryptionTypes;
     }
@@ -344,7 +345,7 @@ public class KdcControls
      *
      * @return The client addresses.
      */
-    public List<InetAddress> getClientAddresses()
+    public Set<InetAddress> getClientAddresses()
     {
         return clientAddresses;
     }
@@ -355,7 +356,7 @@ public class KdcControls
      *
      * @param clientAddresses
      */
-    public void setClientAddresses( List<InetAddress> clientAddresses )
+    public void setClientAddresses( Set<InetAddress> clientAddresses )
     {
         this.clientAddresses = clientAddresses;
     }
