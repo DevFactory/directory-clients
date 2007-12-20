@@ -27,8 +27,9 @@ import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Map;
+import java.util.Set;
 
-import javax.security.auth.kerberos.KerberosKey;
 import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
 
@@ -36,6 +37,7 @@ import org.apache.directory.client.kerberos.protocol.KerberosClientHandler;
 import org.apache.directory.server.kerberos.shared.KerberosMessageType;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.CipherTextHandler;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.EncryptionType;
+import org.apache.directory.server.kerberos.shared.crypto.encryption.KerberosKeyFactory;
 import org.apache.directory.server.kerberos.shared.crypto.encryption.KeyUsage;
 import org.apache.directory.server.kerberos.shared.exceptions.KerberosException;
 import org.apache.directory.server.kerberos.shared.io.encoder.EncryptedDataEncoder;
@@ -238,9 +240,13 @@ public class GetTicketGrantingTicket
     {
         RequestBodyModifier modifier = new RequestBodyModifier();
 
-        // TODO - set enc type base on contols
-        KerberosKey kerberosKey = new KerberosKey( clientPrincipal, password.toCharArray(), "DES" );
-        clientKey = new EncryptionKey( EncryptionType.DES_CBC_MD5, kerberosKey.getEncoded() );
+        EncryptionType encType = controls.getEncryptionTypes().iterator().next();
+        Set<EncryptionType> encTypes = Collections.singleton( encType );
+
+        Map<EncryptionType, EncryptionKey> keys = KerberosKeyFactory.getKerberosKeys( clientPrincipal.getName(),
+            password, encTypes );
+
+        clientKey = keys.get( encType );
 
         PaData[] paData = new PaData[1];
 
@@ -271,11 +277,12 @@ public class GetTicketGrantingTicket
 
         PrincipalName clientName = new PrincipalName( clientPrincipal.getName(), clientPrincipal.getNameType() );
         modifier.setClientName( clientName );
-        modifier.setRealm( clientPrincipal.getRealm() );
 
-        PrincipalName serverName = new PrincipalName( "krbtgt/" + clientPrincipal.getRealm(), clientPrincipal
-            .getNameType() );
+        PrincipalName serverName = new PrincipalName( "krbtgt/" + clientPrincipal.getRealm() + "@"
+            + clientPrincipal.getRealm(), clientPrincipal.getNameType() );
         modifier.setServerName( serverName );
+
+        modifier.setRealm( clientPrincipal.getRealm() );
 
         KdcOptions kdcOptions = new KdcOptions();
 
@@ -318,7 +325,7 @@ public class GetTicketGrantingTicket
 
         modifier.setNonce( random.nextInt() );
 
-        modifier.setEType( Collections.singleton( EncryptionType.DES_CBC_MD5 ) );
+        modifier.setEType( controls.getEncryptionTypes() );
 
         /*
          if ( user supplied addresses )
