@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
-import java.util.Collections;
 import java.util.Date;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -311,7 +310,7 @@ public class GetServiceTicket
 
         modifier.setNonce( random.nextInt() );
 
-        modifier.setEType( Collections.singleton( EncryptionType.DES_CBC_MD5 ) );
+        modifier.setEType( controls.getEncryptionTypes() );
 
         /*
          if ( user supplied addresses )
