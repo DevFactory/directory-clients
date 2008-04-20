@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.apache.directory.client.kerberos</groupId>
     <artifactId>build</artifactId>
-    <version>1.5.2-SNAPSHOT</version>
+    <version>1.5.3-SNAPSHOT</version>
   </parent>
   <artifactId>apacheds-kerberos-realm</artifactId>
   <name>Apache Directory Kerberos Realm</name>
