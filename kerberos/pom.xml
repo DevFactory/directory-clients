@@ -4,13 +4,13 @@
   <parent>
     <groupId>org.apache.directory.server</groupId>
     <artifactId>apacheds-parent</artifactId>
-    <version>1.5.2-SNAPSHOT</version>
+    <version>1.5.3-SNAPSHOT</version>
   </parent>
   <groupId>org.apache.directory.client.kerberos</groupId>
   <artifactId>build</artifactId>
   <name>Apache Directory Kerberos Clients</name>
   <packaging>pom</packaging>
-  <version>1.5.2-SNAPSHOT</version>
+  <version>1.5.3-SNAPSHOT</version>
   <description>
     Contained within this executable jar are various commandline utilities
     for Apache Directory Kerberos.
