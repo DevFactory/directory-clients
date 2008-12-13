@@ -57,11 +57,11 @@ import org.apache.directory.server.kerberos.shared.messages.value.EncryptedData;
 import org.apache.directory.server.kerberos.shared.messages.value.EncryptionKey;
 import org.apache.directory.server.kerberos.shared.messages.value.HostAddress;
 import org.apache.directory.server.kerberos.shared.messages.value.KerberosTime;
-import org.apache.mina.common.ConnectFuture;
-import org.apache.mina.common.IoConnector;
-import org.apache.mina.common.IoSession;
-import org.apache.mina.transport.socket.nio.DatagramConnector;
-import org.apache.mina.transport.socket.nio.SocketConnector;
+import org.apache.mina.core.future.ConnectFuture;
+import org.apache.mina.core.service.IoConnector;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.transport.socket.nio.NioDatagramConnector;
+import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,7 +129,7 @@ public class ChangePassword
 
         ConnectFuture future = connector.connect( new InetSocketAddress( hostname, port ), new PasswordClientHandler() );
 
-        future.join();
+        future.awaitUninterruptibly();
 
         IoSession session = future.getSession();
 
@@ -143,7 +143,7 @@ public class ChangePassword
             log.debug( "Unexpected exception.", e );
         }
 
-        session.getCloseFuture().join();
+        session.getCloseFuture().awaitUninterruptibly();
 
         Object message = session.getAttribute( "reply" );
 
@@ -358,11 +358,11 @@ public class ChangePassword
 
         if ( transport.equals( "UDP" ) )
         {
-            connector = new DatagramConnector();
+            connector = new NioDatagramConnector();
         }
         else
         {
-            connector = new SocketConnector();
+            connector = new NioSocketConnector();
         }
 
         return connector;
