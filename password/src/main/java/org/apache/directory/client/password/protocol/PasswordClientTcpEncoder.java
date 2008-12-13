@@ -24,8 +24,8 @@ import java.io.IOException;
 
 import org.apache.directory.server.changepw.io.ChangePasswordRequestEncoder;
 import org.apache.directory.server.changepw.messages.ChangePasswordRequest;
-import org.apache.mina.common.ByteBuffer;
-import org.apache.mina.common.IoSession;
+import org.apache.mina.core.buffer.IoBuffer;
+import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolEncoderAdapter;
 import org.apache.mina.filter.codec.ProtocolEncoderOutput;
 
@@ -41,7 +41,7 @@ public class PasswordClientTcpEncoder extends ProtocolEncoderAdapter
 
     public void encode( IoSession session, Object message, ProtocolEncoderOutput out ) throws IOException
     {
-        ByteBuffer buf = ByteBuffer.allocate( 1024 );
+        IoBuffer buf = IoBuffer.allocate( 1024 );
 
         // make space for int length
         buf.putInt( 0 );

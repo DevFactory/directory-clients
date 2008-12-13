@@ -24,8 +24,8 @@ import java.io.IOException;
 
 import org.apache.directory.server.changepw.io.ChangePasswordErrorDecoder;
 import org.apache.directory.server.changepw.io.ChangePasswordReplyDecoder;
-import org.apache.mina.common.ByteBuffer;
-import org.apache.mina.common.IoSession;
+import org.apache.mina.core.buffer.IoBuffer;
+import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolDecoderAdapter;
 import org.apache.mina.filter.codec.ProtocolDecoderOutput;
 
@@ -42,7 +42,7 @@ public class PasswordClientUdpDecoder extends ProtocolDecoderAdapter
     private ChangePasswordErrorDecoder errorDecoder = new ChangePasswordErrorDecoder();
 
 
-    public void decode( IoSession session, ByteBuffer in, ProtocolDecoderOutput out ) throws IOException
+    public void decode( IoSession session, IoBuffer in, ProtocolDecoderOutput out ) throws IOException
     {
         // read message length
         in.getShort();

@@ -20,10 +20,8 @@
 package org.apache.directory.client.kerberos.protocol;
 
 
-import org.apache.mina.common.IoHandler;
-import org.apache.mina.common.IoHandlerAdapter;
-import org.apache.mina.common.IoSession;
-import org.apache.mina.common.TransportType;
+import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,10 +42,10 @@ public class KerberosClientHandler extends IoHandlerAdapter
     {
         if ( log.isDebugEnabled() )
         {
-            log.debug( "{} CREATED:  {}", session.getRemoteAddress(), session.getTransportType() );
+            log.debug( "{} CREATED:  {}", session.getRemoteAddress(), session.getTransportMetadata() );
         }
 
-        if ( session.getTransportType() == TransportType.DATAGRAM )
+        if ( session.getTransportMetadata().isConnectionless() )
         {
             session.getFilterChain().addFirst( "codec",
                 new ProtocolCodecFilter( KerberosClientUdpCodecFactory.getInstance() ) );
@@ -69,7 +67,7 @@ public class KerberosClientHandler extends IoHandlerAdapter
 
         session.setAttribute( "reply", message );
 
-        session.close();
+        session.close(true);
     }
 
 
@@ -77,6 +75,6 @@ public class KerberosClientHandler extends IoHandlerAdapter
     {
         log.error( session.getRemoteAddress() + " EXCEPTION", cause );
 
-        session.close();
+        session.close(true);
     }
 }

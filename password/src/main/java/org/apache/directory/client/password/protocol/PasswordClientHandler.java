@@ -20,10 +20,8 @@
 package org.apache.directory.client.password.protocol;
 
 
-import org.apache.mina.common.IoHandler;
-import org.apache.mina.common.IoHandlerAdapter;
-import org.apache.mina.common.IoSession;
-import org.apache.mina.common.TransportType;
+import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,10 +42,10 @@ public class PasswordClientHandler extends IoHandlerAdapter
     {
         if ( log.isDebugEnabled() )
         {
-            log.debug( "{} CREATED:  {}", session.getRemoteAddress(), session.getTransportType() );
+            log.debug( "{} CREATED:  {}", session.getRemoteAddress(), session.getTransportMetadata() );
         }
 
-        if ( session.getTransportType() == TransportType.DATAGRAM )
+        if ( session.getTransportMetadata().isConnectionless() )
         {
             session.getFilterChain().addFirst( "codec",
                 new ProtocolCodecFilter( PasswordClientUdpCodecFactory.getInstance() ) );
