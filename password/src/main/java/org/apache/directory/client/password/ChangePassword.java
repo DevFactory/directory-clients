@@ -23,6 +23,7 @@ package org.apache.directory.client.password;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -126,8 +127,10 @@ public class ChangePassword
         throws PasswordConnectionException
     {
         IoConnector connector = getConnector( transport );
+        SocketAddress address = new InetSocketAddress( hostname, port );
 
-        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, port ), new PasswordClientHandler() );
+        connector.setHandler( new PasswordClientHandler() );
+        ConnectFuture future = connector.connect( address );
 
         future.awaitUninterruptibly();
 

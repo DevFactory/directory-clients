@@ -23,6 +23,7 @@ package org.apache.directory.client.kerberos;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.security.SecureRandom;
 import java.util.Date;
 
@@ -64,8 +65,6 @@ import org.apache.directory.server.kerberos.shared.messages.value.types.PaDataTy
 import org.apache.mina.core.future.ConnectFuture;
 import org.apache.mina.core.service.IoConnector;
 import org.apache.mina.core.session.IoSession;
-import org.apache.mina.transport.socket.DatagramConnector;
-import org.apache.mina.transport.socket.SocketConnector;
 import org.apache.mina.transport.socket.nio.NioDatagramConnector;
 import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import org.slf4j.Logger;
@@ -130,8 +129,10 @@ public class GetServiceTicket
         throws KdcConnectionException
     {
         IoConnector connector = getConnector( transport );
-
-        ConnectFuture future = connector.connect( new InetSocketAddress( hostname, port ), new KerberosClientHandler() );
+        SocketAddress address = new InetSocketAddress( hostname, port );
+        
+        connector.setHandler( new KerberosClientHandler() );
+        ConnectFuture future = connector.connect( address );
 
         future.awaitUninterruptibly();
 
